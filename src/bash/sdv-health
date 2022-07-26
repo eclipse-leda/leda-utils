@@ -1,0 +1,422 @@
+#!/bin/bash
+# /********************************************************************************
+# * Copyright (c) 2022 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+##############################################################################
+###  DEFAULT VALUES, can be overriden by sdv.conf on multiuple locations:  ###
+###  "$HOME/.config/sdv.conf", "/etc/sdv.conf"                             ###
+##############################################################################
+
+# CAN network interface to check for Seat ECU
+SDV_CAN="can0"
+
+# CAN network interface to check for Radar ECU (optional)
+SDV_CAN_RADAR=""
+
+# Default list of monitored Systemd Services
+#SDV_SERVICES="k3s containerd rauc virtual-kubelet virtual-kubelet-server virtual-kubelet-classic sota-bfb-adapter"
+SDV_SERVICES="k3s containerd rauc"
+
+# Default list of optional Systemd Services
+#SDV_SERVICES_OPT="vehicle-api mosquitto"
+SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
+
+# Default list of requred SDV Docker containers
+SDV_PODS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan dapr-operator dapr-sidecar-injector otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
+
+# Change internet connectivity check host
+SDV_PING_HOST="1.1.1.1"
+
+#### Default config values ####
+
+# dump 20 lines of logs by default
+LOG_LINES=20
+DUMP_LOGS=
+VERBOSE=0
+
+### CONSTANTS below
+
+# kubectl exec
+KUBECTL_CMD="kubectl"
+# systemctl exec
+SYSTEMCTL_CMD="systemctl"
+
+COL_NC='\e[39m'
+COL_RED='\e[31m'
+COL_GREEN='\e[32m'
+COL_YELLOW='\e[33m'
+COL_BLUE='\e[34m'
+COL_GRAY='\e[90m'
+COL_WHITE='\e[97m'
+COL_NC_BOLD='\e[1;39m'
+
+init_colors() {
+	export TEXT_OK="${COL_GREEN}OK${COL_NC}"
+	export TEXT_NOTICE="${COL_YELLOW}N/A${COL_NC}"
+	export TEXT_FAIL="${COL_RED}FAILED!${COL_NC}"
+	export SEPARATOR="${COL_GRAY}-----------------------------------------------------------${COL_NC}"
+}
+
+check_service()
+{
+	local service="$1"
+	local required="$2" # assumed true if not set
+
+	local STATUS=`$SYSTEMCTL_CMD status $service -n 0 2>&1`
+	local ACTIVE=`echo "$STATUS" | grep 'Active:' | xargs`
+
+	#echo "* $service status: $ACTIVE"
+	echo "$ACTIVE" | grep -q "active (running)\|active (listening)"
+	if [ $? -eq 0 ]; then
+		printf -- "$TEXT_OK\n"
+	else
+		[ -z "$ACTIVE" ] && ACTIVE="$( $SYSTEMCTL_CMD status $service -n 0 2>&1 1>/dev/null )"
+		if [ "$required" = "false" ]; then
+			printf -- "$TEXT_NOTICE\t ($ACTIVE)\n"
+		else
+			printf -- "$TEXT_FAIL\t ($ACTIVE)\n"
+		fi
+	fi
+}
+
+check_pod()
+{
+	local pod="$1"
+	local required="$2"
+
+	RESULT=$( $KUBECTL_CMD describe pod $pod 2>/dev/null )
+	local status=$( echo "$RESULT" | grep "Status:"  | cut -d ':' -f 2 | xargs )
+	local ready=$(  echo "$RESULT" | grep "  Ready " | awk '{ print $2 }' )
+
+	if [ "$status" = "Running" ] && [ "$ready" = "True" ]; then
+		printf -- "$TEXT_OK\n"
+	else
+		local err_msg="(N/A)"
+		if [ -n "$status" ] || [ -n "$ready" ]; then
+			err_msg="(Status: \"$status\", Ready: $ready)"
+		fi
+		if [ "$required" = "true" ]; then
+			printf -- "$TEXT_FAIL\t $err_msg"
+		else
+			printf -- "$TEXT_NOTICE\t $err_msg"
+		fi
+	fi
+}
+
+check_rc() {
+	local STATUS=$( $* 2>&1 1>/dev/null )
+	rc=$?
+	if [ $rc -eq 0 ]; then
+		printf -- "$TEXT_OK\n"
+	else
+		# dump exit code if stderr was ""
+		[ -z "$STATUS" ] && STATUS="error: $rc"
+		printf -- "$TEXT_FAIL\t %s\n" "($STATUS)"
+	fi
+}
+
+check_pod_logs()
+{
+	local pod="$1"
+	local prefix="$2"
+
+	# 1st find containers for pod, then tail each container's logs
+	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
+	printf -- "${COL_YELLOW}$ $KUBECTL_CMD get pod $pod -o jsonpath=\"{.spec.containers[*].name}\" ${COL_NC}\n" | prefix "[$prefix]"
+	local containers=$( $KUBECTL_CMD get pod $pod -o jsonpath="{.spec.containers[*].name}" )
+
+	if [ -z "$containers" ]; then
+		printf -- "No contaiers in $pod" | prefix "[$prefix]"
+		return 1
+	fi
+	for c in $containers; do
+		printf -- "${COL_YELLOW}$ $KUBECTL_CMD logs $pod -c $c --tail $LOG_LINES ${COL_NC}\n" | prefix "[$prefix]"
+		$KUBECTL_CMD logs $pod -c $c --tail $LOG_LINES | prefix "[$prefix/$c]"
+		printf -- "\n" | prefix "[$prefix]"
+	done
+	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
+}
+
+check_service_logs()
+{
+	local service="$1"
+	local prefix="$2"
+
+	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
+	local jopt="$JOURNAL_OPT --no-hostname --output=cat --no-pager -l -n $LOG_LINES"
+	printf -- "${COL_YELLOW}$ journalctl -t $service $jopt${COL_NC}\n" | prefix "[$prefix]"
+	journalctl -t $service $jopt | prefix "[$prefix]"
+	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
+}
+
+port_grep()
+{
+	local NETSTAT="$1"
+	local port=$2
+	local required="$3"
+
+	LINE="$( echo -n "$NETSTAT" | grep "\:$port" | tr '\n' ' ' )"
+	if [ -n "$LINE" ]; then
+		printf -- "$TEXT_OK\t { $LINE}"
+	else
+		if [ "$required" = "false" ]; then
+			printf -- "$TEXT_NOTICE"
+		else
+			printf -- "$TEXT_FAIL\t Port $port not open!"
+		fi
+	fi
+}
+
+prefix()
+{
+	local prefix="$1"
+	local IFS=''
+	while read line; do
+		printf -- "${COL_WHITE}${prefix}${COL_NC} %s\n" "${line}"
+	done
+}
+
+check_network()
+{
+	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
+	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
+	#printf -- "  * %-23s : %s\n" "Mosquitto" "$( port_grep "$PORTS" 1883 true  )"
+	printf -- "  * %-23s : %s\n" "Kubernetes API" "$( port_grep "$PORTS" 6444 true  )"
+}
+
+check_can()
+{
+	local can="$1"
+	local RESULT=$( ip address | grep ": $can:" )
+	if [ -z "$RESULT" ]; then
+		printf -- "$TEXT_FAIL\t ($can not found)\n"
+	elif echo "$RESULT" | grep -q ",UP"; then
+		printf -- "$TEXT_OK\n"
+	else
+		printf -- "$TEXT_FAIL\t ($RESULT)\n"
+	fi
+}
+
+check_cloudconnector()
+{
+	if [ ! -z "$MOSQUITTO_HOST" ]; then 
+		local RESULT=$( mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1)
+		if [ -z "$RESULT" ]; then
+			printf -- "$TEXT_FAIL\t\n"
+		elif echo "$RESULT" | grep -q "connected\":true"; then
+			local LAST_UPDATE=$(mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1 | jq .timestamp)
+			local NOW=$(date +"%s")
+			local DIFF=($NOW - $LAST_UPDATE)
+			local SINCE=$(date -u -d @"$DIFF" +'%-Mm %-Ss')
+			printf -- "$TEXT_OK\t (connected since $SINCE)\n"
+		else
+			printf -- "$TEXT_FAIL\t ($RESULT)\n"
+		fi
+	else
+		printf -- "$TEXT_FAIL\t (Mosquitto unavailable)\n"
+	fi
+}
+
+check_cloudconnector_deviceid()
+{
+	if [ ! -z "$MOSQUITTO_HOST" ]; then
+		RESULT=$( mosquitto_rr --quiet -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
+		RC=$?
+		if [ $RC == 27 ]; then
+			printf -- "$TEXT_FAIL\t (Connector did not respond)\t\n"
+		elif [ -z "$RESULT" ]; then
+			printf -- "$TEXT_FAIL\t ($RC)\t\n"
+		elif echo "$RESULT" | grep -q "deviceId"; then
+			local DEVICEID=$( echo "$RESULT" | jq .deviceId)
+			printf -- "$TEXT_OK\t ($DEVICEID)\n"
+		else
+			printf -- "$TEXT_FAIL\t ($RC: $RESULT)\n"
+		fi
+	else 
+		printf -- "$TEXT_FAIL\t (Mosquitto unavailable)\n"
+	fi
+}
+
+dump_logs()
+{
+	if [ -n "$SDV_PODS" ]; then
+		printf -- "\n${COL_WHITE}************ [Container logs] **********${COL_NC}\n\n"
+
+		for pod in $SDV_PODS; do
+			check_pod_logs "${pod}" "${pod}"
+			printf -- "\n"
+		done
+	fi
+
+	if [ -n "$SDV_SERVICES" ] || [ -n "$SDV_SERVICES_OPT" ]; then
+		printf -- "\n${COL_WHITE}************ [Service logs] **********${COL_NC}\n\n"
+
+		local services="$SDV_SERVICES $SDV_SERVICES_OPT"
+		for service in $services; do
+			[ "$DUMP_SERVICES" = "1" ] && $SYSTEMCTL_CMD status --no-pager -q "${service}" -n 0 | prefix "[${service}]"
+			check_service_logs "${service}" "${service}"
+			printf -- "\n"
+		done
+	fi
+	printf -- "\n"
+}
+
+######################################################
+#                        setup                       #
+######################################################
+
+while [ -n "$1" ]; do
+	if [ "$1" = "-l" ] || [ "$1" = "--log" ]; then
+		DUMP_LOGS=1
+		if [ -n "$2" ]; then
+			shift # next arg
+			LOG_LINES=$1
+		fi
+	elif [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
+		VERBOSE=1
+	elif [ "$1" = "--ansi" ]; then
+		# reset COL_XX for monochrome output
+		export COL_NC=""
+		export COL_RED=""
+		export COL_GREEN=""
+		export COL_YELLOW=""
+		export COL_BLUE=""
+		export COL_WHITE=""
+		export COL_GRAY=""
+		export COL_NC_BOLD=""
+	elif [ "$1" = "--help" ]; then
+		echo "Usage: $0 {options}"
+		echo "	--log {no_lines} | -l {no_lines} : Show monitored pod/service logs. Specify {no_lines} to change default lines of logs."
+		echo "	--ansi : Don't use colored output."
+		echo "	--verbose | -v : Enable verbose mode."
+		echo "	--help : This message."
+		echo
+		echo "  NOTE: Uses SDV_ variables from \$HOME/.config/sdv.conf or /etc/sdv/sdv.conf"
+		echo
+		exit 0
+	fi
+	shift
+done
+
+init_colors
+
+#########################################
+# Read Local / Global SDV configuration #
+#########################################
+
+if [ -f "$HOME/.config/sdv.conf" ]; then
+	. "$HOME/.config/sdv.conf"
+	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && cat $HOME/.config/sdv.conf | grep -v  '^#' | sort -u
+elif [ -f "/etc/sdv/sdv.conf" ]; then
+	. "/etc/sdv/sdv.conf"
+	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: /etc/sdv/sdv.conf" && cat /etc/sdv/sdv.conf | grep -v  '^#' | sort -u
+else
+	[ "$VERBOSE" = "1" ] && echo "# Config file not found!"
+fi
+
+######################################################
+#                        main                        #
+######################################################
+
+[ -n "$DUMP_LOGS" ] && dump_logs
+
+printf -- "${COL_WHITE}[SDV Info]${COL_NC}\n"
+# get info values
+source /etc/os-release
+IMAGE_VERSION=$( cat /etc/issue 2>/dev/null )
+IMAGE_TIMESTAMP=$( cat /etc/version 2>/dev/null )
+printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "OS Release:" "${PRETTY_NAME}"
+printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Image Version:" "${IMAGE_VERSION}"
+printf -- "  * %-23s : %s\n" "Build Time:" "${IMAGE_TIMESTAMP}"
+printf -- "$SEPARATOR\n"
+
+# make sure CAN is up
+printf -- "${COL_WHITE}[CAN Status]${COL_NC}\n"
+printf -- "  * %-23s : `check_can $SDV_CAN`\n" "$SDV_CAN"
+
+printf -- "$SEPARATOR\n"
+printf -- "${COL_WHITE}[SDV Ports]${COL_NC}\n"
+check_network
+printf -- "$SEPARATOR\n"
+
+if [ -n "$SDV_SERVICES" ]; then
+	printf -- "${COL_WHITE}[SDV Services]${COL_NC}\n"
+	for service in $SDV_SERVICES; do
+		printf '  * %-23s : %s\n' "${service}" "$( check_service ${service} )"
+	done
+fi
+if [ -n "$SDV_SERVICES_OPT" ]; then
+	printf -- "${COL_WHITE}[SDV Optional Services]${COL_NC}\n"
+	for service in $SDV_SERVICES_OPT; do
+		printf '  * %-23s : %s\n' "${service}" "$( check_service ${service} false )"
+	done
+fi
+
+K3S_IS_ACTIVE=$(systemctl is-active k3s)
+if [ -n "$SDV_PODS" ]; then
+	printf -- "$SEPARATOR\n"
+
+	printf -- "${COL_WHITE}[SDV Pods]${COL_NC}\n"
+	if [ $K3S_IS_ACTIVE ]; then
+
+		ALL_PODS=$(kubectl get pods -A -o custom-columns=:metadata.name,:status.phase --no-headers=true --request-timeout='20s' --sort-by=metadata.name)
+		for expectedPod in $SDV_PODS; do
+			while IFS= read -ra line ; do
+				#echo $line;
+				IFS=' ' read -ra ARR <<< $line
+				#printf '  * %-23s : %s\n' "${ARR[0]}" "${ARR[1]}"
+				pod=${ARR[0]}
+				status=${ARR[1]}
+
+				if [[ "$pod" == *"$expectedPod"* ]]; then
+					if [ "$status" = "Running" ] || [ "$status" = "Succeeded" ]; then
+						printf "  * %-40s : $TEXT_OK\n" "${pod}"
+					else
+						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${pod}" "$status"
+					fi
+				fi
+
+			done <<< "$ALL_PODS"
+		done
+	else
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kubernetes" "Unavailable"
+	fi
+fi
+
+printf -- "$SEPARATOR\n"
+printf -- "${COL_WHITE}[SDV Connectivity]${COL_NC}\n"
+#[ -z "$SDV_AZ_DEVICE_ID" ] && SDV_AZ_DEVICE_ID=$( sdv-device-info env 2>/dev/null | grep SDV_AZ_DEVICE_ID= | cut  -d '=' -f 2 )
+printf -- "  * %-23s : %s\t (ping $SDV_PING_HOST)\n" "Ping [Internet]"  "$( check_rc ping -q -c 1 -W 1 $SDV_PING_HOST )"
+#printf -- "  * %-23s : %s\t (ping $SDV_PING_HOST)\n" "Ping [Internet]"  "$( check_rc timeout --kill-after=2s --signal=9 1s bash -c \"true >/dev/tcp/$SDV_PING_HOST/53\" )"
+
+NSLOOKUP_CMD=$(resolvectl query google.com --legend=false -4 --no-pager)
+NSLOOKUP_RC=$?
+NSLOOKUP_CUT=$(echo $NSLOOKUP_CMD | cut -d ' ' -f 2)
+if [ $NSLOOKUP_RC ]; then
+	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "DNS Lookup [Internet]"  "$NSLOOKUP_CUT"
+else
+	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "DNS Lookup [Internet]"  "Unable to find service ($NSLOOKUP_CMD)"
+fi
+
+MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
+MHRC=$?
+if [ ! -z $MOSQUITTO_HOST ]; then
+	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
+else 
+	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
+fi
+
+printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
+printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
+printf -- "$SEPARATOR\n"
+

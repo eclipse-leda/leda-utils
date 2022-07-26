@@ -1,0 +1,109 @@
+#!/bin/bash
+# /********************************************************************************
+# * Copyright (c) 2022 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+# Configure the device
+#
+#set -x
+
+echo "Checking Eclipse Leda Device Provisioning configuration..."
+
+KUBECTL="kubectl"
+RESTART_REQUIRED=0
+
+if ! command -v "$KUBECTL" > /dev/null
+then
+    echo "Error: $KUBECTL not found"
+    exit 1
+fi
+
+function checkCloudConnection() {
+    local secretname=$1
+    EXISTING_GHCR_IO=$($KUBECTL get secret ${secretname})
+    EXISTING_GHCR_IO_RC=$?
+    if [ ! ${EXISTING_GHCR_IO_RC} -eq 0 ]
+    then
+        echo "The Kubernetes Secret to identify the device (connection string) is not yet created, do you want to create it?"
+        select ync in "Yes" "No" "Cancel"; do
+            case $ync in
+                Yes )
+                    echo -n "Please enter Connection String of device: "
+                    read -s CONNSTRING
+                    echo -n "Creating secret..."
+                    $KUBECTL create secret generic ${secretname} --from-literal=PrimaryConnectionString=\"${CONNSTRING}\"
+                    echo "Done"
+                    RESTART_REQUIRED=1
+                    return 1
+                ;;
+                No )
+                    return 0
+                ;;
+                Cancel )
+                    exit
+                ;;
+            esac
+        done
+    else
+        echo "The secret \"${secretname}\" has already been created in Kubernetes."
+    fi
+}
+
+function checkContainerRegistry() {
+    local secretname=$1
+    local crhostname=$2
+    EXISTING_SECRET=$($KUBECTL get secret ${secretname})
+    EXISTING_SECRET_RC=$?
+    if [ ! ${EXISTING_SECRET_RC} -eq 0 ]
+    then
+        echo "The Kubernetes Secret to pull container images from a private container registry are missing, do you want to create them?"
+        select ync in "Yes" "No" "Cancel"; do
+            case $ync in
+                Yes )
+                    echo -n "Please enter username (eg GitHub Username): "
+                    read GHCR_USERNAME
+                    echo -n "Please enter password (eg GitHub Personal Access Token): "
+                    read -s GHCR_PAT
+                    echo "Creating secret..."
+                    $KUBECTL create secret docker-registry ${secretname} \
+                            --docker-server=${crhostname} \
+                            --docker-username=\"$GHCR_USERNAME\" \
+                            --docker-password=\"$GHCR_PAT\"
+                    echo "Done"
+                    RESTART_REQUIRED=1
+                    return 1
+                ;;
+                No )
+                    return 0
+                ;;
+                Cancel )
+                    exit
+                ;;
+            esac
+        done
+    else
+        echo "The secret \"${secretname}\" has already been created in Kubernetes."
+    fi
+}
+
+checkCloudConnection "cloudagent"
+checkContainerRegistry "ghcr-io" "ghcr.io"
+
+if [ ${RESTART_REQUIRED} -eq 1 ]
+then
+    echo "Forcing a reload of the cloudagent..."
+    $KUBECTL rollout restart deployment/cloudagent
+else
+    echo "Nothing to do"
+fi
+
+echo "Device provisioning finished, check with `sdv-health`"

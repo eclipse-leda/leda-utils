@@ -1,0 +1,117 @@
+#!/bin/bash
+# /********************************************************************************
+# * Copyright (c) 2022 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+
+# Config
+COMMAND="show"
+AUTORESTART=1
+
+COL_NC='\e[39m'
+COL_RED='\e[31m'
+COL_GREEN='\e[32m'
+COL_YELLOW='\e[33m'
+COL_BLUE='\e[34m'
+COL_GRAY='\e[90m'
+COL_WHITE='\e[97m'
+COL_NC_BOLD='\e[1;39m'
+
+init_colors() {
+	export TEXT_OK="${COL_GREEN}OK${COL_NC}"
+	export TEXT_NOTICE="${COL_YELLOW}N/A${COL_NC}"
+	export TEXT_FAIL="${COL_RED}FAILED!${COL_NC}"
+	export SEPARATOR="${COL_GRAY}-----------------------------------------------------------${COL_NC}"
+}
+
+######################################################
+#                        setup                       #
+######################################################
+
+while [ -n "$1" ]; do
+	if [ "$1" = "--verbose" ] || [ "$1" = "-v" ]; then
+		VERBOSE=1
+	elif [ "$1" = "--norestart" ] || [ "$1" = "-n" ]; then
+		AUTORESTART=0
+	elif [ "$1" = "--ansi" ] || [ "$1" = "-a" ]; then
+		# reset COL_XX for monochrome output
+		export COL_NC=""
+		export COL_RED=""
+		export COL_GREEN=""
+		export COL_YELLOW=""
+		export COL_BLUE=""
+		export COL_WHITE=""
+		export COL_GRAY=""
+		export COL_NC_BOLD=""
+	elif [ "$1" = "--help" ] || [ "$1" = "help" ] || [ "$1" = "-h" ]; then
+    echo "sdv-device-info v0.1"
+		echo "Usage: $0 [options] [command]"
+    echo "Show SDV device configuration information"
+    echo "Example: $0 show"
+    echo
+    echo "Commands:"
+    echo " show                 : Display configuration (default command)"
+    echo " help                 : This message"
+    echo " env                  : Format output for use in scripts"
+    echo
+    echo "Options:"
+		echo " --ansi | -a      : Don't use colored output."
+    echo " --norestart | -n : Do not automatically restart services"
+		echo " --verbose | -v   : Enable verbose mode."
+		echo " --help | -h      : This message."
+		echo
+		exit 0
+  elif [ "$1" = "show" ]; then
+    COMMAND="show"
+  elif [ "$1" = "env" ]; then
+    COMMAND="env"
+	fi
+	shift
+done
+
+function loadDeviceInfo() {
+  MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
+  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
+  FULL_CONNECTION_IDENTIFIER=$(echo "$PAYLOAD" | jq .deviceId | tr -d '"')
+  TENANT_ID=$(echo "$PAYLOAD" | jq .tenantId | tr -d '"')
+  CLOUD_HUB=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 1)
+  DEVICE_ID=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 2)
+  HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
+}
+
+function showDeviceInfo() {
+  loadDeviceInfo
+  printf -- "${COL_WHITE}[SDV Device Configuration]${COL_NC}\n"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Connection Identifier:"  "${FULL_CONNECTION_IDENTIFIER}"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Tenant ID:"  "${TENANT_ID}"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Cloud Backend:"  "${CLOUD_HUB}"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "${DEVICE_ID}"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "IoT Hub:"  "${HUB_HOSTNAME}"
+}
+
+if [ "$COMMAND" = "env" ]; then
+ loadDeviceInfo
+ echo FULL_CONNECTION_IDENTIFIER="$FULL_CONNECTION_IDENTIFIER"
+ echo TENANT_ID="$TENANT_ID"
+ echo CLOUD_HUB="$CLOUD_HUB"
+ echo DEVICE_ID="$DEVICE_ID"
+ echo HUB_HOSTNAME="$HUB_HOSTNAME"
+ exit 0
+fi
+
+init_colors
+
+if [ -z $COMMAND ] | [ "$COMMAND" = "show" ]; then
+ showDeviceInfo
+ exit 0
+fi
+
