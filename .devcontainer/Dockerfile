@@ -52,6 +52,10 @@ COPY resources/k3s.service /etc/systemd/system
 RUN sudo chmod +x /usr/local/bin/k3s \
     && sudo chmod +x /usr/local/bin/kubectl
 
+# # install kanto
+COPY resources/kanto.deb /home/vscode/kanto.deb
+RUN sudo apt-get install -y /home/vscode/kanto.deb
+
 # Install blobfuse2 since blobfuse1 is not avaialable in MS repos for Debian 11
 RUN sudo apt-get -y install software-properties-common \
     && curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add - \

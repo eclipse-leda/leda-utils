@@ -35,3 +35,24 @@ sudo systemctl start containerd
 # add mosquitto service
 sudo systemctl enable mosquitto
 sudo systemctl start mosquitto
+
+# kanto services
+
+sudo systemctl enable container-management.service
+sudo systemctl enable file-backup.service
+sudo systemctl enable file-upload.service
+sudo systemctl enable local-digital-twins.service
+sudo systemctl enable software-update.service
+sudo systemctl enable suite-bootstrapping.service
+sudo systemctl enable suite-connector.service
+sudo systemctl enable system-metrics.service
+
+
+sudo systemctl start container-management.service
+sudo systemctl start file-backup.service
+sudo systemctl start file-upload.service
+sudo systemctl start local-digital-twins.service
+sudo systemctl start software-update.service
+sudo systemctl start suite-bootstrapping.service
+sudo systemctl start suite-connector.service
+sudo systemctl start system-metrics.service

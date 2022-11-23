@@ -5,7 +5,7 @@ After=network.target
 Wants=network.target
 
 [Service]
-ExecStart=/usr/sbin/mosquitto -c /etc/mosquitto/mosquitto.conf
+ExecStart=/usr/sbin/mosquitto -c /etc/mosquitto/mosquitto.conf -p 1883
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 ExecStartPre=/bin/mkdir -m 740 -p /var/log/mosquitto
