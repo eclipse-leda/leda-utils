@@ -41,7 +41,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates \
 
 # Install fake services
 RUN sudo apt-get install -y openssh-server \
-    && sudo apt-get install -y mosquitto
+    && sudo apt-get install -y mosquitto mosquitto-clients
 
 COPY resources/k3s /usr/local/bin/k3s
 COPY resources/kubectl /usr/local/bin

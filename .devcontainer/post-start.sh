@@ -21,38 +21,38 @@ sudo ip link add dev can0 type vcan || true
 sudo ip link set can0 up || true
 
 # setup openssh server service
-sudo systemctl enable ssh
-sudo systemctl start ssh
+sudo systemctl enable ssh || true
+sudo systemctl start ssh || true
 
 # setup k3s and kubectl
-sudo systemctl enable k3s
-sudo systemctl start k3s
+sudo systemctl enable k3s || true
+sudo systemctl start k3s || true
 
 # add containerd service
-sudo systemctl enable containerd
-sudo systemctl start containerd
+sudo systemctl enable containerd || true
+sudo systemctl start containerd || true
 
 # add mosquitto service
-sudo systemctl enable mosquitto
-sudo systemctl start mosquitto
+sudo systemctl enable mosquitto || true
+sudo systemctl start mosquitto || true
 
 # kanto services
 
-sudo systemctl enable container-management.service
-sudo systemctl enable file-backup.service
-sudo systemctl enable file-upload.service
-sudo systemctl enable local-digital-twins.service
-sudo systemctl enable software-update.service
-sudo systemctl enable suite-bootstrapping.service
-sudo systemctl enable suite-connector.service
-sudo systemctl enable system-metrics.service
+sudo systemctl enable container-management.service || true
+sudo systemctl enable file-backup.service || true
+sudo systemctl enable file-upload.service || true
+sudo systemctl enable local-digital-twins.service || true
+sudo systemctl enable software-update.service || true
+sudo systemctl enable suite-bootstrapping.service || true
+sudo systemctl enable suite-connector.service || true
+sudo systemctl enable system-metrics.service || true
 
 
-sudo systemctl start container-management.service
-sudo systemctl start file-backup.service
-sudo systemctl start file-upload.service
-sudo systemctl start local-digital-twins.service
-sudo systemctl start software-update.service
-sudo systemctl start suite-bootstrapping.service
-sudo systemctl start suite-connector.service
-sudo systemctl start system-metrics.service
+sudo systemctl start container-management.service || true
+sudo systemctl start file-backup.service || true
+sudo systemctl start file-upload.service || true
+sudo systemctl start local-digital-twins.service || true
+sudo systemctl start software-update.service  || true
+sudo systemctl start suite-bootstrapping.service || true
+sudo systemctl start suite-connector.service || true
+sudo systemctl start system-metrics.service || true
