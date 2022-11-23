@@ -39,7 +39,18 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates \
     gnupg \
     lsb-release
 
+# Install fake services
+RUN sudo apt-get install -y openssh-server \
+    && sudo apt-get install -y mosquitto
 
+COPY resources/k3s /usr/local/bin/k3s
+COPY resources/kubectl /usr/local/bin
+COPY resources/mosquitto.service /etc/systemd/system
+COPY resources/containerd.service /etc/systemd/system
+COPY resources/k3s.service /etc/systemd/system
+
+RUN sudo chmod +x /usr/local/bin/k3s \
+    && sudo chmod +x /usr/local/bin/kubectl
 
 # Install blobfuse2 since blobfuse1 is not avaialable in MS repos for Debian 11
 RUN sudo apt-get -y install software-properties-common \
