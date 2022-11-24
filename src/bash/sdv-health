@@ -33,7 +33,7 @@ SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
 SDV_PODS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan dapr-operator dapr-sidecar-injector otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
-
+KANTO_CM_CONTAINERS=$SDV_PODS
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
@@ -415,6 +415,37 @@ if [ -n "$SDV_PODS" ]; then
 		done
 	else
 		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kubernetes" "Unavailable"
+	fi
+fi
+
+CM_STATUS=$(systemctl is-active container-management)
+if [ -n "$KANTO_CM_CONTAINERS" ]; then
+	printf -- "$SEPARATOR\n"
+
+	printf -- "${COL_WHITE}[Kanto CM Containers]${COL_NC}\n"
+	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
+
+		# removes tabs, splits on pipe and takes the container name column and the container status colum (2 and 4)
+		ALL_CNTRS=$(${KANTO_CMD} list | awk -F'|' '{gsub(/\t/, ""); print $2 $4}') 
+		for expectedCntr in $KANTO_CM_CONTAINERS; do
+			while IFS= read -ra line ; do
+				#echo $line;
+				IFS=' ' read -ra ARR <<< $line
+				cntr=${ARR[0]}
+				status=${ARR[1]}
+
+				if [[ "$cntr" == *"$expectedCntr"* ]]; then
+					if [ "$status" = "Running" ] || [ "$status" = "Exited" ]; then # <------------------- What states do we put here?
+						printf "  * %-40s : $TEXT_OK\n" "${cntr}"
+					else
+						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${cntr}" "$status"
+					fi
+				fi
+
+			done <<< "$ALL_CNTRS"
+		done
+	else
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
 	fi
 fi
 
