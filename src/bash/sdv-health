@@ -33,7 +33,7 @@ SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
 SDV_PODS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan dapr-operator dapr-sidecar-injector otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
-
+KANTO_CM_CONTAINERS=$SDV_PODS
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
@@ -50,6 +50,11 @@ VERBOSE=0
 KUBECTL_CMD="kubectl"
 # systemctl exec
 SYSTEMCTL_CMD="systemctl"
+
+# kanto exec
+KANTO_CMD="kanto-cm"
+KANTO_SOCK=/run/container-management/container-management.sock
+
 
 COL_NC='\e[39m'
 COL_RED='\e[31m'
@@ -186,13 +191,32 @@ prefix()
 	done
 }
 
+
+check_unix_sock() 
+{
+	local socket="$1"
+	local required="$2"
+
+	if [ -S "$socket" ]; then
+		printf -- "$TEXT_OK\t { $socket}"
+	else
+		if [ "$required" = "false" ]; then
+			printf -- "$TEXT_NOTICE"
+		else
+			printf -- "$TEXT_FAIL\t Socket $socket not open!"
+		fi
+	fi
+}
+
 check_network()
 {
 	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
-	#printf -- "  * %-23s : %s\n" "Mosquitto" "$( port_grep "$PORTS" 1883 true  )"
 	printf -- "  * %-23s : %s\n" "Kubernetes API" "$( port_grep "$PORTS" 6444 true  )"
+	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
+	printf -- "  * %-23s : %s\n" "Mosquitto Server" "$( port_grep "$PORTS" 1883 true  )"
 }
+
 
 check_can()
 {
@@ -393,6 +417,37 @@ if [ -n "$SDV_PODS" ]; then
 	fi
 fi
 
+CM_STATUS=$(systemctl is-active container-management)
+if [ -n "$KANTO_CM_CONTAINERS" ]; then
+	printf -- "$SEPARATOR\n"
+
+	printf -- "${COL_WHITE}[Kanto CM Containers]${COL_NC}\n"
+	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
+
+		# removes tabs, splits on pipe and takes the container name column and the container status colum (2 and 4)
+		ALL_CNTRS=$(${KANTO_CMD} list | awk -F'|' '{gsub(/\t/, ""); print $2 $4}') 
+		for expectedCntr in $KANTO_CM_CONTAINERS; do
+			while IFS= read -ra line ; do
+				#echo $line;
+				IFS=' ' read -ra ARR <<< $line
+				cntr=${ARR[0]}
+				status=${ARR[1]}
+
+				if [[ "$cntr" == *"$expectedCntr"* ]]; then
+					if [ "$status" = "Running" ] || [ "$status" = "Exited" ]; then # <------------------- What states do we put here?
+						printf "  * %-40s : $TEXT_OK\n" "${cntr}"
+					else
+						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${cntr}" "$status"
+					fi
+				fi
+
+			done <<< "$ALL_CNTRS"
+		done
+	else
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
+	fi
+fi
+
 printf -- "$SEPARATOR\n"
 printf -- "${COL_WHITE}[SDV Connectivity]${COL_NC}\n"
 #[ -z "$SDV_AZ_DEVICE_ID" ] && SDV_AZ_DEVICE_ID=$( sdv-device-info env 2>/dev/null | grep SDV_AZ_DEVICE_ID= | cut  -d '=' -f 2 )
@@ -408,15 +463,9 @@ else
 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "DNS Lookup [Internet]"  "Unable to find service ($NSLOOKUP_CMD)"
 fi
 
-MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
-MHRC=$?
-if [ ! -z $MOSQUITTO_HOST ]; then
-	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
-else 
-	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
-fi
+# Static ip for mosquitto server. Containers will have access to host networks iff they run in host network mode.
+MOSQUITTO_HOST="127.0.0.1:1883"
 
 printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
 printf -- "$SEPARATOR\n"
-
