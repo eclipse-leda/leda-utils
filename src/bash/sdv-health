@@ -51,6 +51,11 @@ KUBECTL_CMD="kubectl"
 # systemctl exec
 SYSTEMCTL_CMD="systemctl"
 
+# kanto exec
+KANTO_CMD="kanto-cm"
+KANTO_SOCK=/run/container-management/container-management.sock
+
+
 COL_NC='\e[39m'
 COL_RED='\e[31m'
 COL_GREEN='\e[32m'
@@ -186,13 +191,33 @@ prefix()
 	done
 }
 
+
+check_unix_sock() 
+{
+	local socket="$1"
+	local required="$2"
+
+	if [ -S "$socket" ]; then
+		printf -- "$TEXT_OK\t { $socket}"
+	else
+		if [ "$required" = "false" ]; then
+			printf -- "$TEXT_NOTICE"
+		else
+			printf -- "$TEXT_FAIL\t Socket $socket not open!"
+		fi
+	fi
+}
+
 check_network()
 {
 	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
 	#printf -- "  * %-23s : %s\n" "Mosquitto" "$( port_grep "$PORTS" 1883 true  )"
 	printf -- "  * %-23s : %s\n" "Kubernetes API" "$( port_grep "$PORTS" 6444 true  )"
+	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
+
 }
+
 
 check_can()
 {
