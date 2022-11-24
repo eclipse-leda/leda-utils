@@ -210,7 +210,7 @@ check_can()
 check_cloudconnector()
 {
 	if [ ! -z "$MOSQUITTO_HOST" ]; then 
-		local RESULT="0.0.0.0:1883"
+		local RESULT=$( mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1)
 		if [ -z "$RESULT" ]; then
 			printf -- "$TEXT_FAIL\t\n"
 		elif echo "$RESULT" | grep -q "connected\":true"; then
@@ -408,7 +408,7 @@ else
 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "DNS Lookup [Internet]"  "Unable to find service ($NSLOOKUP_CMD)"
 fi
 
-MOSQUITTO_HOST="0.0.0.0:1883"
+MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
 MHRC=$?
 if [ ! -z $MOSQUITTO_HOST ]; then
 	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
@@ -419,4 +419,3 @@ fi
 printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
 printf -- "$SEPARATOR\n"
-
