@@ -21,7 +21,7 @@
 		"args": { "VARIANT": "bullseye" }
 	},
 	"hostRequirements": {
-		"cpus": 2,
+		"cpus": 4,
 		"memory": "4gb",
 		"storage": "128gb"
 	},
