@@ -465,13 +465,6 @@ fi
 
 # Static ip for mosquitto server. Containers will have access to host networks iff they run in host network mode.
 MOSQUITTO_HOST="127.0.0.1:1883"
-# MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
-# MHRC=$?
-# if [ ! -z $MOSQUITTO_HOST ]; then
-# 	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
-# else 
-# 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
-# fi
 
 printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
