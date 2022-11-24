@@ -48,8 +48,8 @@ COPY resources/containerd.service /etc/systemd/system
 
 
 # # install kanto
-COPY resources/kanto.deb /home/vscode/kanto.deb
-RUN sudo apt-get install -y /home/vscode/kanto.deb
+RUN wget https://github.com/eclipse-kanto/kanto/releases/download/v0.1.0-M2/kanto_0.1.0-M2_linux_x86_64.deb -P /home/vscode \ 
+   && sudo apt-get install -y /home/vscode/kanto_0.1.0-M2_linux_x86_64.deb
 
 # Install blobfuse2 since blobfuse1 is not avaialable in MS repos for Debian 11
 RUN sudo apt-get -y install software-properties-common \
