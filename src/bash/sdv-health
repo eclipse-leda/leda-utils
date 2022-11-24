@@ -31,7 +31,7 @@ SDV_SERVICES="containerd rauc container-management"
 SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
-KANTO_CM_CONTAINERS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan dapr-operator dapr-sidecar-injector otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
+KANTO_CM_CONTAINERS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
