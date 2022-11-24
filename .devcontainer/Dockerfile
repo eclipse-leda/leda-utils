@@ -43,14 +43,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install ca-certificates \
 RUN sudo apt-get install -y openssh-server \
     && sudo apt-get install -y mosquitto mosquitto-clients
 
-COPY resources/k3s /usr/local/bin/k3s
-COPY resources/kubectl /usr/local/bin
 COPY resources/mosquitto.service /etc/systemd/system
 COPY resources/containerd.service /etc/systemd/system
-COPY resources/k3s.service /etc/systemd/system
 
-RUN sudo chmod +x /usr/local/bin/k3s \
-    && sudo chmod +x /usr/local/bin/kubectl
 
 # # install kanto
 COPY resources/kanto.deb /home/vscode/kanto.deb

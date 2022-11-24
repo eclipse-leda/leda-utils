@@ -24,10 +24,6 @@ sudo ip link set can0 up || true
 sudo systemctl enable ssh || true
 sudo systemctl start ssh || true
 
-# setup k3s and kubectl
-sudo systemctl enable k3s || true
-sudo systemctl start k3s || true
-
 # add containerd service
 sudo systemctl enable containerd || true
 sudo systemctl start containerd || true
