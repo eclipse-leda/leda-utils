@@ -377,7 +377,7 @@ if [ -n "$KANTO_CM_CONTAINERS" ]; then
 				status=${ARR[1]}
 
 				if [[ "$cntr" == *"$expectedCntr"* ]]; then
-					if [ "$status" = "Running" ] || [ "$status" = "Exited" ]; then # <------------------- What states do we put here?
+					if [ "$status" = "Running" ]; then
 						printf "  * %-40s : $TEXT_OK\n" "${cntr}"
 					else
 						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${cntr}" "$status"
