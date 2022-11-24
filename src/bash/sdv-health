@@ -24,16 +24,14 @@ SDV_CAN="can0"
 SDV_CAN_RADAR=""
 
 # Default list of monitored Systemd Services
-#SDV_SERVICES="k3s containerd rauc virtual-kubelet virtual-kubelet-server virtual-kubelet-classic sota-bfb-adapter"
-SDV_SERVICES="k3s containerd rauc"
+SDV_SERVICES="containerd rauc container-management"
 
 # Default list of optional Systemd Services
 #SDV_SERVICES_OPT="vehicle-api mosquitto"
 SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
-SDV_PODS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan dapr-operator dapr-sidecar-injector otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
-
+KANTO_CM_CONTAINERS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
@@ -46,10 +44,15 @@ VERBOSE=0
 
 ### CONSTANTS below
 
-# kubectl exec
-KUBECTL_CMD="kubectl"
 # systemctl exec
 SYSTEMCTL_CMD="systemctl"
+
+# kanto paths
+KANTO_CMD="kanto-cm"
+KANTO_CM_HOME_DIR=/var/lib/container-management
+KANTO_CM_LOG_FILE=json.log
+KANTO_SOCK=/run/container-management/container-management.sock
+KANTO_LOG_LINES=$LOG_LINES
 
 COL_NC='\e[39m'
 COL_RED='\e[31m'
@@ -89,30 +92,6 @@ check_service()
 	fi
 }
 
-check_pod()
-{
-	local pod="$1"
-	local required="$2"
-
-	RESULT=$( $KUBECTL_CMD describe pod $pod 2>/dev/null )
-	local status=$( echo "$RESULT" | grep "Status:"  | cut -d ':' -f 2 | xargs )
-	local ready=$(  echo "$RESULT" | grep "  Ready " | awk '{ print $2 }' )
-
-	if [ "$status" = "Running" ] && [ "$ready" = "True" ]; then
-		printf -- "$TEXT_OK\n"
-	else
-		local err_msg="(N/A)"
-		if [ -n "$status" ] || [ -n "$ready" ]; then
-			err_msg="(Status: \"$status\", Ready: $ready)"
-		fi
-		if [ "$required" = "true" ]; then
-			printf -- "$TEXT_FAIL\t $err_msg"
-		else
-			printf -- "$TEXT_NOTICE\t $err_msg"
-		fi
-	fi
-}
-
 check_rc() {
 	local STATUS=$( $* 2>&1 1>/dev/null )
 	rc=$?
@@ -123,28 +102,6 @@ check_rc() {
 		[ -z "$STATUS" ] && STATUS="error: $rc"
 		printf -- "$TEXT_FAIL\t %s\n" "($STATUS)"
 	fi
-}
-
-check_pod_logs()
-{
-	local pod="$1"
-	local prefix="$2"
-
-	# 1st find containers for pod, then tail each container's logs
-	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
-	printf -- "${COL_YELLOW}$ $KUBECTL_CMD get pod $pod -o jsonpath=\"{.spec.containers[*].name}\" ${COL_NC}\n" | prefix "[$prefix]"
-	local containers=$( $KUBECTL_CMD get pod $pod -o jsonpath="{.spec.containers[*].name}" )
-
-	if [ -z "$containers" ]; then
-		printf -- "No contaiers in $pod" | prefix "[$prefix]"
-		return 1
-	fi
-	for c in $containers; do
-		printf -- "${COL_YELLOW}$ $KUBECTL_CMD logs $pod -c $c --tail $LOG_LINES ${COL_NC}\n" | prefix "[$prefix]"
-		$KUBECTL_CMD logs $pod -c $c --tail $LOG_LINES | prefix "[$prefix/$c]"
-		printf -- "\n" | prefix "[$prefix]"
-	done
-	printf -- "$SEPARATOR\n" | prefix "[$prefix]"
 }
 
 check_service_logs()
@@ -186,13 +143,30 @@ prefix()
 	done
 }
 
+check_unix_sock() 
+{
+	local socket="$1"
+	local required="$2"
+
+	if [ -S "$socket" ]; then
+		printf -- "$TEXT_OK\t { $socket}"
+	else
+		if [ "$required" = "false" ]; then
+			printf -- "$TEXT_NOTICE"
+		else
+			printf -- "$TEXT_FAIL\t Socket $socket not open!"
+		fi
+	fi
+}
+
 check_network()
 {
 	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
-	#printf -- "  * %-23s : %s\n" "Mosquitto" "$( port_grep "$PORTS" 1883 true  )"
-	printf -- "  * %-23s : %s\n" "Kubernetes API" "$( port_grep "$PORTS" 6444 true  )"
+	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
+	printf -- "  * %-23s : %s\n" "Mosquitto Server" "$( port_grep "$PORTS" 1883 true  )"
 }
+
 
 check_can()
 {
@@ -247,13 +221,38 @@ check_cloudconnector_deviceid()
 	fi
 }
 
+cm_get_container_id ()
+{
+	local CONT_NAME=$1
+	${KANTO_CMD} get -n $CONT_NAME 2>/dev/null | jq -r " .container_id" 
+}
+
+cm_check_logging_type ()
+{
+	local CONT_ID=$1
+	${KANTO_CMD} get ${CONT_ID} | jq -r " .host_config.log_config.driver_config.type"
+}
+
+cm_get_container_logs () # get the last n (following tail syntax) lines of a container's logs by name
+{
+	local CONT_NAME=$1
+	local LOG_MAX_LINES=$2
+	CONT_ID=$(cm_get_container_id $CONT_NAME) 	
+	if [ $CONT_ID ]; then
+		LOGGING_TYPE=$(cm_check_logging_type $CONT_ID)
+		if [ $LOGGING_TYPE="json-file" ]; then # according to kanto docs logging type is either "json-file" (to json.log) or "none"
+			tail -n $LOG_MAX_LINES ${KANTO_CM_HOME_DIR}/containers/${CONT_ID}/${KANTO_CM_LOG_FILE}
+		fi
+	fi
+}
+
 dump_logs()
 {
-	if [ -n "$SDV_PODS" ]; then
+	if [ -n "$KANTO_CM_CONTAINERS" ]; then
 		printf -- "\n${COL_WHITE}************ [Container logs] **********${COL_NC}\n\n"
 
-		for pod in $SDV_PODS; do
-			check_pod_logs "${pod}" "${pod}"
+		for container in $KANTO_CM_CONTAINERS; do
+			cm_get_container_logs "${container}" $KANTO_LOG_LINES # get the last $KANTO_LOG_LINES lines of the log
 			printf -- "\n"
 		done
 	fi
@@ -329,7 +328,6 @@ fi
 ######################################################
 
 [ -n "$DUMP_LOGS" ] && dump_logs
-
 printf -- "${COL_WHITE}[SDV Info]${COL_NC}\n"
 # get info values
 source /etc/os-release
@@ -362,34 +360,34 @@ if [ -n "$SDV_SERVICES_OPT" ]; then
 	done
 fi
 
-K3S_IS_ACTIVE=$(systemctl is-active k3s)
-if [ -n "$SDV_PODS" ]; then
+CM_STATUS=$(systemctl is-active container-management)
+if [ -n "$KANTO_CM_CONTAINERS" ]; then
 	printf -- "$SEPARATOR\n"
 
-	printf -- "${COL_WHITE}[SDV Pods]${COL_NC}\n"
-	if [ $K3S_IS_ACTIVE ]; then
+	printf -- "${COL_WHITE}[Kanto CM Containers]${COL_NC}\n"
+	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
 
-		ALL_PODS=$(kubectl get pods -A -o custom-columns=:metadata.name,:status.phase --no-headers=true --request-timeout='20s' --sort-by=metadata.name)
-		for expectedPod in $SDV_PODS; do
+		# removes tabs, splits on pipe and takes the container name column and the container status colum (2 and 4)
+		ALL_CNTRS=$(${KANTO_CMD} list | awk -F'|' '{gsub(/\t/, ""); print $2 $4}') 
+		for expectedCntr in $KANTO_CM_CONTAINERS; do
 			while IFS= read -ra line ; do
 				#echo $line;
 				IFS=' ' read -ra ARR <<< $line
-				#printf '  * %-23s : %s\n' "${ARR[0]}" "${ARR[1]}"
-				pod=${ARR[0]}
+				cntr=${ARR[0]}
 				status=${ARR[1]}
 
-				if [[ "$pod" == *"$expectedPod"* ]]; then
-					if [ "$status" = "Running" ] || [ "$status" = "Succeeded" ]; then
-						printf "  * %-40s : $TEXT_OK\n" "${pod}"
+				if [[ "$cntr" == *"$expectedCntr"* ]]; then
+					if [ "$status" = "Running" ]; then
+						printf "  * %-40s : $TEXT_OK\n" "${cntr}"
 					else
-						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${pod}" "$status"
+						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${cntr}" "$status"
 					fi
 				fi
 
-			done <<< "$ALL_PODS"
+			done <<< "$ALL_CNTRS"
 		done
 	else
-		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kubernetes" "Unavailable"
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
 	fi
 fi
 
@@ -408,15 +406,9 @@ else
 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "DNS Lookup [Internet]"  "Unable to find service ($NSLOOKUP_CMD)"
 fi
 
-MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
-MHRC=$?
-if [ ! -z $MOSQUITTO_HOST ]; then
-	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
-else 
-	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
-fi
+# Static ip for mosquitto server. Containers will have access to host networks iff they run in host network mode.
+MOSQUITTO_HOST="127.0.0.1:1883"
 
 printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
 printf -- "$SEPARATOR\n"
-
