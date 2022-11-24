@@ -212,10 +212,9 @@ check_network()
 {
 	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
-	#printf -- "  * %-23s : %s\n" "Mosquitto" "$( port_grep "$PORTS" 1883 true  )"
 	printf -- "  * %-23s : %s\n" "Kubernetes API" "$( port_grep "$PORTS" 6444 true  )"
 	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
-
+	printf -- "  * %-23s : %s\n" "Mosquitto Server" "$( port_grep "$PORTS" 1883 true  )"
 }
 
 
@@ -464,13 +463,15 @@ else
 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "DNS Lookup [Internet]"  "Unable to find service ($NSLOOKUP_CMD)"
 fi
 
-MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
-MHRC=$?
-if [ ! -z $MOSQUITTO_HOST ]; then
-	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
-else 
-	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
-fi
+# Static ip for mosquitto server. Containers will have access to host networks iff they run in host network mode.
+MOSQUITTO_HOST="127.0.0.1:1883"
+# MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
+# MHRC=$?
+# if [ ! -z $MOSQUITTO_HOST ]; then
+# 	printf -- "  * %-23s : $TEXT_OK\t (%s)\n" "Mosquitto IP"  "$MOSQUITTO_HOST"
+# else 
+# 	printf -- "  * %-23s : $TEXT_FAIL\t (%s)\n" "Mosquitto IP"  "Unable to find service ($MHRC)"
+# fi
 
 printf -- "  * %-23s : %s\n" "Cloud Connector"         "$( check_cloudconnector )"
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "$( check_cloudconnector_deviceid )"
