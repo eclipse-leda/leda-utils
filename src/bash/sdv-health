@@ -230,7 +230,7 @@ cm_get_container_id ()
 cm_check_logging_type ()
 {
 	local CONT_ID=$1
-	${KANTO_CMD} get -n databroker | jq -r " .host_config.log_config.driver_config.type"
+	${KANTO_CMD} get ${CONT_ID} | jq -r " .host_config.log_config.driver_config.type"
 }
 
 cm_get_container_logs () # get the last n (following tail syntax) lines of a container's logs by name
