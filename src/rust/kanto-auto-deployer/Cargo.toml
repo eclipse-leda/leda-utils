@@ -2,6 +2,10 @@
 name = "kanto-auto-deployer"
 version = "0.1.0"
 edition = "2021"
+description = "Kanto Auto Deployer via a unix socket"
+license = "Apache-2.0"
+homepage = "https://github.com/eclipse-leda/leda-utils/tree/main/src/rust/kanto-auto-deployer"
+repository = "https://github.com/eclipse-leda/leda-utils/tree/main/src/rust/kanto-auto-deployer"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,3 +23,7 @@ glob = "0.3.0"
 
 [build-dependencies]
 tonic-build =  "0.8.2"
+
+[[bin]]
+name = "kanto-auto-deployer"
+path = "src/main.rs"
