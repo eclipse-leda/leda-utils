@@ -6,6 +6,7 @@ description = "Kanto Auto Deployer via a unix socket"
 license = "Apache-2.0"
 homepage = "https://github.com/eclipse-leda/leda-utils/tree/main/src/rust/kanto-auto-deployer"
 repository = "https://github.com/eclipse-leda/leda-utils/tree/main/src/rust/kanto-auto-deployer"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
