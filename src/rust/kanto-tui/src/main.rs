@@ -145,11 +145,11 @@ fn run_ui(
     siv.add_global_callback('l', get_logs_cb.clone());
     siv.add_global_callback('q', |s| s.quit());
 
-    siv.set_fps(5);
+    siv.set_fps(3);
 
     siv.add_global_callback(cursive::event::Event::Refresh, move |s| {
         try_best(tx_requests.blocking_send(KantoRequest::ListContainers));
-        if let Some(resp) = rx_responses.blocking_recv() {
+        if let Ok(resp) = rx_responses.try_recv() {
             match resp {
                 KantoResponse::ListContainers(list) => table::update_table_items(s, list),
                 KantoResponse::GetLogs(logs) => table::show_logs_view(s, logs),
@@ -170,7 +170,7 @@ fn main() -> kanto_api::Result<()> {
         std::process::exit(-1);
     }
 
-    let (tx_responses, rx_responses) = mpsc::channel::<KantoResponse>(32);
+    let (tx_responses, rx_responses) = mpsc::channel::<KantoResponse>(1024);
     let (tx_requests, mut rx_requests) = mpsc::channel::<KantoRequest>(32);
 
     std::thread::spawn(move || {
