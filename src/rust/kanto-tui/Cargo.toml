@@ -18,7 +18,7 @@ description = "A TUI for Kanto CM that allows easier management of deployed cont
 edition = "2021"
 authors = ["Vasil Ivanov vasil.ivanov3@bosch.io"]
 repository = "https://github.com/eclipse-leda/leda-utils"
-license-file = "../../LICENSE"
+license-file = "../../../LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
