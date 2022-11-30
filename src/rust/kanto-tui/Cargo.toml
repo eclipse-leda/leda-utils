@@ -1,0 +1,58 @@
+# /********************************************************************************
+# * Copyright (c) 2022 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+[package]
+name = "kantui"
+version = "0.1.0"
+description = "A TUI for Kanto CM that allows easier management of deployed containers. Requires root."
+edition = "2021"
+authors = ["Vasil Ivanov vasil.ivanov3@bosch.io"]
+repository = "https://github.com/eclipse-leda/leda-utils"
+license-file = "../../LICENSE"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "kantui"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kantui"
+path = "src/main.rs"
+
+[dependencies]
+prost = "0.11"
+tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tonic = {version = "0.8.2" }
+tower = { version = "0.4" }
+http = "0.2"
+hyper = { version = "0.14", features = ["full"] }
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
+cursive_table_view = "0.14.0"
+nix = "0.26.1"
+enclose = "1.1.8"
+clap = { version = "4.0.29", features = ["derive"] }
+strip-ansi-escapes = "0.1.1"
+
+[dependencies.cursive]
+version = "0.20.0"
+features = ["crossterm-backend"]
+
+[build-dependencies]
+tonic-build =  "0.8.2"
+
+[profile.release]
+strip = true
+lto = true
