@@ -18,14 +18,14 @@ use kantui::{containers_table_view as table, kanto_api, try_best};
 use nix::unistd::Uid;
 
 #[derive(Parser, Debug)]
-#[command(version, about)]
+#[clap(version, about)]
 struct CliArgs {
     /// Set the path to the kanto-cm UNIX socket
-    #[arg(short, long, default_value_t=String::from("/run/container-management/container-management.sock"))]
+    #[clap(short, long, default_value_t=String::from("/run/container-management/container-management.sock"))]
     socket: String,
 
     /// Time before sending a SIGKILL after a SIGTERM to a container (seconds)
-    #[arg(short, long, default_value_t = 5)]
+    #[clap(short, long, default_value_t = 5)]
     timeout: u8,
 }
 
@@ -142,15 +142,15 @@ fn run_ui(
     siv.add_fullscreen_layer(
         Dialog::around(
             table
-                .with_name(table::TABLE_IDENTIFIER)
-                .min_size((400, 400)),
+            .with_name(table::TABLE_IDENTIFIER)
+            .full_screen()
         )
         .title("Kanto Container Management")
         .button("[S]tart", start_cb.clone())
         .button("Sto[P]", stop_cb.clone())
         .button("[R]emove", remove_cb.clone())
         .button("[L]ogs", get_logs_cb.clone())
-        .button("[Q]uit", |s| s.quit()),
+        .button("[Q]uit", |s| s.quit())
     );
 
     // Add keyboard shortcuts
