@@ -10,7 +10,6 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
-
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tonic::transport::{Endpoint, Uri};
@@ -26,8 +25,6 @@ use std::fs;
 use std::env;
 use glob::glob;
 
-#[cfg(unix)]
-
 async fn start(_client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>, name: &String, _id: &String) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Starting [{}]", name);
@@ -40,7 +37,6 @@ async fn start(_client: &mut kanto::containers_client::ContainersClient<tonic::t
 
 async fn create(_client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>, file_path: &String) -> Result<(), Box<dyn std::error::Error>> {
 
-	println!("From file {}", file_path);
     let container_str = fs::read_to_string(file_path)
         .expect("Should have been able to read the file");
 	let container: kanto_cnt::Container = serde_json::from_str(&container_str)?;
@@ -85,13 +81,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut full_name = String::new();
     for entry in glob(&file_path)? {
         let name= entry?.display().to_string();
-        full_name.push_str(&path);
         full_name.push_str(&name);
-        //println!("{}", full_name);
         create(&mut client, &full_name).await?;
         full_name.clear()
     }
 
     Ok(())
-
 }
