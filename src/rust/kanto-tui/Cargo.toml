@@ -32,7 +32,7 @@ path = "src/main.rs"
 
 [dependencies]
 prost = "0.11"
-tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
+tokio = { version = "1.0", features = [ "rt-multi-thread", "fs"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tonic = {version = "0.8.2" }
 tower = { version = "0.4" }
@@ -45,6 +45,7 @@ nix = "0.26.1"
 enclose = "1.1.8"
 clap = { version = "4.0.29", features = ["derive"] }
 strip-ansi-escapes = "0.1.1"
+async-priority-channel = "0.1.0"
 
 [dependencies.cursive]
 version = "0.20.0"
