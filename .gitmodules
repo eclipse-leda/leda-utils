@@ -1,3 +1,6 @@
+[submodule "src/rust/kanto-tui/container-management"]
+	path = src/rust/kanto-tui/container-management
+	url = https://github.com/eclipse-kanto/container-management.git
 [submodule "src/rust/kanto-auto-deployer/container-management"]
 	path = src/rust/kanto-auto-deployer/container-management
 	url = https://github.com/eclipse-kanto/container-management
