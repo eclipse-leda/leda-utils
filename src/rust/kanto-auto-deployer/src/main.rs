@@ -37,20 +37,32 @@ async fn start(_client: &mut kanto::containers_client::ContainersClient<tonic::t
 
 async fn create(_client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>, file_path: &String) -> Result<(), Box<dyn std::error::Error>> {
 
-    let container_str = fs::read_to_string(file_path)
-        .expect("Should have been able to read the file");
-	let container: kanto_cnt::Container = serde_json::from_str(&container_str)?;
-	let name = String::from(container.name.clone());
-	println!("Creating [{}]", name);
-    let request = tonic::Request::new(kanto::CreateContainerRequest{container: Some(container)});
-	let _response = _client.create(request).await?;
-    println!("Created [{}]", name);
-    let _none = String::new();
-    let id = match _response.into_inner().container {
-        Some(c) => c.id,
-        None => _none
-    };
-    start(_client, &name, &id).await?;
+    let container_str = fs::read_to_string(file_path)?;
+    let parsed_json = serde_json::from_str(&container_str);
+	if let Ok(container) = parsed_json {
+		let container: kanto_cnt::Container = container;
+		let name = String::from(container.name.clone());
+		let _r = tonic::Request::new(kanto::ListContainersRequest {});
+		let containers = _client.list(_r).await?.into_inner();
+		for container in &containers.containers {
+			if container.name == name {
+				println!("Already exists [{}]", name);
+				return Ok(());    		  
+			}
+		}
+		println!("Creating [{}]", name);
+		let request = tonic::Request::new(kanto::CreateContainerRequest{container: Some(container)});
+		let _response = _client.create(request).await?;
+		println!("Created [{}]", name);
+		let _none = String::new();
+		let id = match _response.into_inner().container {
+			Some(c) => c.id,
+			None => _none
+		};
+		start(_client, &name, &id).await?;
+	} else {
+		eprintln!("Wrong json in [{}]", file_path);
+	}
     Ok(())	
 }
 
