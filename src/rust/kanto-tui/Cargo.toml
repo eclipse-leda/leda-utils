@@ -50,7 +50,7 @@ async-priority-channel = "0.1.0"
 
 [dependencies.cursive]
 version = "0.16.2"
-feautres = ["termion-backend"]
+features = ["termion-backend"]
 
 [build-dependencies]
 tonic-build =  "0.8.2"
