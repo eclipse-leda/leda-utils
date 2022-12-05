@@ -44,8 +44,8 @@ async fn create(_client: &mut kanto::containers_client::ContainersClient<tonic::
 		let name = String::from(container.name.clone());
 		let _r = tonic::Request::new(kanto::ListContainersRequest {});
 		let containers = _client.list(_r).await?.into_inner();
-		for container in &containers.containers {
-			if container.name == name {
+		for cont in &containers.containers {
+			if cont.name == name {
 				println!("Already exists [{}]", name);
 				return Ok(());    		  
 			}
