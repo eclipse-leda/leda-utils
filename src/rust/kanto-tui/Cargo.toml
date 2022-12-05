@@ -45,7 +45,7 @@ nix = "0.26.1"
 enclose = "1.1.8"
 clap = { version = "3.2.23", features = ["derive"] }
 strip-ansi-escapes = "0.1.1"
-async-priority-channel = "0.1.0"
+async-priority-channel = {git = "https://github.com/rmcgibbo/async-priority-channel", branch = "master"}
 
 [dependencies.cursive]
 version = "0.16.2"
