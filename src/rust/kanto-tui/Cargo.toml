@@ -49,7 +49,6 @@ async-priority-channel = "0.1.0"
 
 [dependencies.cursive]
 version = "0.16.2"
-features = ["crossterm-backend"]
 
 [build-dependencies]
 tonic-build =  "0.8.2"
