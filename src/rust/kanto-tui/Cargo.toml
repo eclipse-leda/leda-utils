@@ -47,10 +47,11 @@ enclose = "1.1.8"
 clap = { version = "3.2.23", features = ["derive"] }
 strip-ansi-escapes = "0.1.1"
 async-priority-channel = "0.1.0"
+cursive_buffered_backend = "0.5.0"
 
 [dependencies.cursive]
 version = "0.16.2"
-features = ["ncurses-backend"]
+features = ["termion-backend"]
 
 [build-dependencies]
 tonic-build =  "0.8.2"

@@ -103,6 +103,7 @@ async fn tokio_main(
     }
 }
 
+
 /// Setup the user interface and start the UI thread
 fn run_ui(
     tx_requests: Sender<KantoRequest, RequestPriority>,
@@ -172,7 +173,7 @@ fn run_ui(
         }
     });
 
-    siv.run();
+    siv.try_run_with(table::buffered_termion_backend)?;
 
     Ok(())
 }

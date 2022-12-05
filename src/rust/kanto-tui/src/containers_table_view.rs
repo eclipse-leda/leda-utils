@@ -15,9 +15,9 @@ use cursive::align::HAlign;
 use cursive::view::Scrollable;
 use cursive::views::{Dialog, TextView};
 use cursive::With;
+use cursive_buffered_backend;
 use cursive_table_view::{TableView, TableViewItem};
 use std::cmp::Ordering;
-
 pub type CTView = TableView<ContainersTable, ContainerColumn>;
 
 pub static TABLE_IDENTIFIER: &'static str = "table";
@@ -151,4 +151,10 @@ pub fn set_cursive_theme(siv: &mut cursive::CursiveRunnable) {
             palette[Highlight] = Blue.dark();
         }),
     });
+}
+
+pub fn buffered_termion_backend() -> kanto_api::Result<Box<dyn cursive::backend::Backend>> {
+    let backend = cursive::backends::termion::Backend::init()?;
+    let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
+    Ok(Box::new(buffered_backend))
 }
