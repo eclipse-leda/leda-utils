@@ -40,7 +40,7 @@ async fn create(_client: &mut kanto::containers_client::ContainersClient<tonic::
     let container_str = fs::read_to_string(file_path)?;
     let parsed_json = serde_json::from_str(&container_str);
 	if let Ok(container) = parsed_json {
-        let container: kanto_cnt::Container = container   
+        let container: kanto_cnt::Container = container;
         let name = String::from(container.name.clone());
         let _r = tonic::Request::new(kanto::ListContainersRequest {});
         let containers = _client.list(_r).await?.into_inner();
