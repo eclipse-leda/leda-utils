@@ -50,6 +50,7 @@ async-priority-channel = "0.1.0"
 cursive_buffered_backend = "0.5.0"
 
 [dependencies.cursive]
+default-features=false
 version = "0.16.2"
 features = ["termion-backend"]
 
