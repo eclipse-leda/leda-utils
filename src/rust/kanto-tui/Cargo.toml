@@ -15,7 +15,7 @@
 name = "kantui"
 version = "0.1.0"
 description = "A TUI for Kanto CM that allows easier management of deployed containers. Requires root."
-edition = "2021"
+edition = "2018"
 authors = ["Vasil Ivanov vasil.ivanov3@bosch.io"]
 repository = "https://github.com/eclipse-leda/leda-utils"
 license-file = "../../../LICENSE"
@@ -23,10 +23,14 @@ license-file = "../../../LICENSE"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
+proc-macro = true
 name = "kantui"
 path = "src/lib.rs"
 
+
 [[bin]]
+proc-macro = true
+
 name = "kantui"
 path = "src/main.rs"
 
@@ -37,7 +41,7 @@ tokio-stream = { version = "0.1", features = ["net"] }
 tonic = {version = "0.8.2" }
 tower = { version = "0.4" }
 http = "0.2"
-hyper = { version = "0.14", features = ["full"] }
+hyper = { version = "0.14.11", features = ["full"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
 cursive_table_view = "0.13"
@@ -45,7 +49,7 @@ nix = "0.26.1"
 enclose = "1.1.8"
 clap = { version = "3.2.23", features = ["derive"] }
 strip-ansi-escapes = "0.1.1"
-async-priority-channel = {path = "async-priority-channel"}
+async-priority-channel = "0.1.0"
 
 [dependencies.cursive]
 version = "0.16.2"
@@ -56,6 +60,3 @@ tonic-build =  "0.8.2"
 [profile.release]
 strip = true
 lto = true
-
-[net]
-git-fetch-with-cli=true
