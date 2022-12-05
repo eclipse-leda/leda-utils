@@ -10,22 +10,22 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
+use async_priority_channel::{bounded, Receiver, Sender};
 use clap::Parser;
 use cursive::views::Dialog;
 use cursive::{traits::*, Cursive};
 use kantui::{containers_table_view as table, kanto_api, try_best};
 use nix::unistd::Uid;
-use tokio::sync::mpsc;
 
 #[derive(Parser, Debug)]
-#[command(version, about)]
+#[clap(version, about)]
 struct CliArgs {
     /// Set the path to the kanto-cm UNIX socket
-    #[arg(short, long, default_value_t=String::from("/run/container-management/container-management.sock"))]
+    #[clap(short, long, default_value_t=String::from("/run/container-management/container-management.sock"))]
     socket: String,
 
     /// Time before sending a SIGKILL after a SIGTERM to a container (seconds)
-    #[arg(short, long, default_value_t = 5)]
+    #[clap(short, long, default_value_t = 5)]
     timeout: u8,
 }
 
@@ -45,6 +45,13 @@ enum KantoResponse {
     GetLogs(String),
 }
 
+#[derive(PartialOrd, Ord, PartialEq, Eq, Debug)]
+enum RequestPriority {
+    Low = 0,
+    Normal = 10,
+    _High = 50,
+}
+
 /// IO Thread
 /// Parses requests from the UI thread sent to the request channel and sends the results
 /// back to the response channel. This two-channel architecture allows us to set up non-blocking
@@ -52,17 +59,21 @@ enum KantoResponse {
 #[cfg(unix)]
 #[tokio::main]
 async fn tokio_main(
-    response_tx: mpsc::Sender<KantoResponse>,
-    request_rx: &mut mpsc::Receiver<KantoRequest>,
+    response_tx: Sender<KantoResponse, RequestPriority>,
+    request_rx: &mut Receiver<KantoRequest, RequestPriority>,
     socket_path: &str,
 ) -> kanto_api::Result<()> {
     let mut c = kanto_api::get_connection(socket_path).await?;
     loop {
-        if let Some(request) = request_rx.recv().await {
+        if let Ok((request, _)) = request_rx.recv().await {
             match request {
                 KantoRequest::ListContainers => {
                     let r = kantui::kanto_api::list_containers(&mut c).await?;
-                    try_best(response_tx.send(KantoResponse::ListContainers(r)).await);
+                    try_best(
+                        response_tx
+                            .send(KantoResponse::ListContainers(r), RequestPriority::Low)
+                            .await?,
+                    );
                 }
                 KantoRequest::_CreateContainer(id, registry) => {
                     try_best(kanto_api::create_container(&mut c, &id, &registry).await);
@@ -81,17 +92,22 @@ async fn tokio_main(
                         Ok(logs) => logs,
                         Err(_) => "Could not obtain logs".to_string(),
                     };
-                    try_best(response_tx.send(KantoResponse::GetLogs(logs)).await);
+                    try_best(
+                        response_tx
+                            .send(KantoResponse::GetLogs(logs), RequestPriority::Normal)
+                            .await,
+                    );
                 }
             }
         }
     }
 }
 
+
 /// Setup the user interface and start the UI thread
 fn run_ui(
-    tx_requests: mpsc::Sender<KantoRequest>,
-    mut rx_responses: mpsc::Receiver<KantoResponse>,
+    tx_requests: Sender<KantoRequest, RequestPriority>,
+    rx_responses: Receiver<KantoResponse, RequestPriority>,
     timeout: i64,
 ) -> kanto_api::Result<()> {
     let mut siv = cursive::default();
@@ -102,40 +118,40 @@ fn run_ui(
 
     let start_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.blocking_send(KantoRequest::StartContainer(c.id.clone())));
+            try_best(tx_requests.try_send(KantoRequest::StartContainer(c.id.clone()), RequestPriority::Normal));
         }
     });
 
     let stop_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.blocking_send(KantoRequest::StopContainer(c.id.clone(), timeout)));
+            try_best(tx_requests.try_send(KantoRequest::StopContainer(c.id.clone(), timeout), RequestPriority::Normal));
         }
     });
 
     let remove_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.blocking_send(KantoRequest::RemoveContainer(c.id.clone())));
+            try_best(tx_requests.try_send(KantoRequest::RemoveContainer(c.id.clone()), RequestPriority::Normal));
         }
     });
 
     let get_logs_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.blocking_send(KantoRequest::GetLogs(c.id.clone())));
+            try_best(tx_requests.try_send(KantoRequest::GetLogs(c.id.clone()), RequestPriority::Normal));
         }
     });
 
     siv.add_fullscreen_layer(
         Dialog::around(
             table
-                .with_name(table::TABLE_IDENTIFIER)
-                .min_size((400, 400)),
+            .with_name(table::TABLE_IDENTIFIER)
+            .full_screen()
         )
         .title("Kanto Container Management")
         .button("[S]tart", start_cb.clone())
         .button("Sto[P]", stop_cb.clone())
         .button("[R]emove", remove_cb.clone())
         .button("[L]ogs", get_logs_cb.clone())
-        .button("[Q]uit", |s| s.quit()),
+        .button("[Q]uit", |s| s.quit())
     );
 
     // Add keyboard shortcuts
@@ -145,11 +161,11 @@ fn run_ui(
     siv.add_global_callback('l', get_logs_cb.clone());
     siv.add_global_callback('q', |s| s.quit());
 
-    siv.set_fps(3);
+    siv.set_fps(30);
 
     siv.add_global_callback(cursive::event::Event::Refresh, move |s| {
-        try_best(tx_requests.blocking_send(KantoRequest::ListContainers));
-        if let Ok(resp) = rx_responses.try_recv() {
+        try_best(tx_requests.try_send(KantoRequest::ListContainers, RequestPriority::Low));
+        if let Ok((resp, _)) = rx_responses.try_recv() {
             match resp {
                 KantoResponse::ListContainers(list) => table::update_table_items(s, list),
                 KantoResponse::GetLogs(logs) => table::show_logs_view(s, logs),
@@ -157,7 +173,7 @@ fn run_ui(
         }
     });
 
-    siv.run();
+    siv.try_run_with(table::buffered_termion_backend)?;
 
     Ok(())
 }
@@ -170,8 +186,8 @@ fn main() -> kanto_api::Result<()> {
         std::process::exit(-1);
     }
 
-    let (tx_responses, rx_responses) = mpsc::channel::<KantoResponse>(1024);
-    let (tx_requests, mut rx_requests) = mpsc::channel::<KantoRequest>(32);
+    let (tx_responses, rx_responses) = bounded::<KantoResponse, RequestPriority>(5);
+    let (tx_requests, mut rx_requests) = bounded::<KantoRequest, RequestPriority>(5);
 
     std::thread::spawn(move || {
         tokio_main(tx_responses, &mut rx_requests, &args.socket).expect("Error in io thread");
