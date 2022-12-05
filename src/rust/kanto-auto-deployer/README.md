@@ -19,5 +19,7 @@ Run as root so you can bind to the socket!!
 
 
 ```bash
-sudo target/release/kanto-auto-deployer 
+sudo target/release/kanto-auto-deployer [path to json files]
 ```
+
+If path is not specified, kanto-auto-deployer uses current.
