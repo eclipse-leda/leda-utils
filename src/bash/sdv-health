@@ -31,7 +31,8 @@ SDV_SERVICES="containerd rauc container-management"
 SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
-KANTO_CM_CONTAINERS="mosquitto cloud-connector seat-adjuster-app vehicle-update-manager vehicledatabroker seatservice feedercan otelcol-sdv-exporter otelcol-sdv-agent selfupdateagent"
+KANTO_CM_CONTAINERS="cloudconnector databroker vum sua "
+KANTO_CM_CONTAINERS_OPT="seatservice-example hvacservice-example feedercan otelcol-sdv-exporter otelcol-sdv-agent "
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
@@ -66,6 +67,7 @@ COL_NC_BOLD='\e[1;39m'
 init_colors() {
 	export TEXT_OK="${COL_GREEN}OK${COL_NC}"
 	export TEXT_NOTICE="${COL_YELLOW}N/A${COL_NC}"
+	export TEXT_WARN="${COL_YELLOW}WARNING${COL_NC}"
 	export TEXT_FAIL="${COL_RED}FAILED!${COL_NC}"
 	export SEPARATOR="${COL_GRAY}-----------------------------------------------------------${COL_NC}"
 }
@@ -270,6 +272,21 @@ dump_logs()
 	printf -- "\n"
 }
 
+get_array_element_index() 
+{
+	local element=$1
+	shift
+	local arr=("$@")
+
+	for i in "${!arr[@]}"; do
+
+		if [[ "${arr[$i]}" == "${element}" ]]; then
+			echo $i
+			break
+		fi
+	done
+}
+
 ######################################################
 #                        setup                       #
 ######################################################
@@ -366,30 +383,67 @@ if [ -n "$KANTO_CM_CONTAINERS" ]; then
 
 	printf -- "${COL_WHITE}[Kanto CM Containers]${COL_NC}\n"
 	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
+		# "Mandatory containers"
+		KANTO_CM_LIST=$(${KANTO_CMD} list)
+		# removes tabs, splits on pipe and takes the container name column ($2)
+		FOUND_CONTAINERS=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $2}')) # array with all kanto container names
+		# removes tabs, splits on pipe and takes the container status colum ($4)
+		FOUND_CONTAINERS_STATES=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $4}')) # array with all kanto container states
+		KANTO_CM_CONTAINERS_ARR=( $KANTO_CM_CONTAINERS )
 
-		# removes tabs, splits on pipe and takes the container name column and the container status colum (2 and 4)
-		ALL_CNTRS=$(${KANTO_CMD} list | awk -F'|' '{gsub(/\t/, ""); print $2 $4}') 
-		for expectedCntr in $KANTO_CM_CONTAINERS; do
-			while IFS= read -ra line ; do
-				#echo $line;
-				IFS=' ' read -ra ARR <<< $line
-				cntr=${ARR[0]}
-				status=${ARR[1]}
-
-				if [[ "$cntr" == *"$expectedCntr"* ]]; then
-					if [ "$status" = "Running" ]; then
-						printf "  * %-40s : $TEXT_OK\n" "${cntr}"
-					else
-						printf "  * %-40s : $TEXT_FAIL (%s)\n" "${cntr}" "$status"
-					fi
+		for expectedCtr in ${KANTO_CM_CONTAINERS_ARR[@]}; do
+			CTR_IDX=$(get_array_element_index ${expectedCtr} ${FOUND_CONTAINERS[@]})
+			if [ ! -z $CTR_IDX ]; then
+				status=${FOUND_CONTAINERS_STATES[$CTR_IDX]}
+				if [ "$status" = "Running" ]; then
+					printf "  * %-40s : $TEXT_OK\n" "${expectedCtr}"
+				else
+					printf "  * %-40s : $TEXT_FAIL (%s)\n" "${expectedCtr}" "$status"
 				fi
-
-			done <<< "$ALL_CNTRS"
+			else
+				printf "  * %-40s : $TEXT_FAIL (%s)\n" "${expectedCtr}" "NOT FOUND"
+			fi
 		done
+
 	else
 		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
 	fi
 fi
+
+if [ -n "$KANTO_CM_CONTAINERS_OPT" ]; then
+	printf -- "$SEPARATOR\n"
+
+	printf -- "${COL_WHITE}[Kanto CM Containers (OPTIONAL)]${COL_NC}\n"
+	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
+		
+		# "Optional containers"
+		KANTO_CM_LIST=$(${KANTO_CMD} list)
+		# removes tabs, splits on pipe and takes the container name column ($2)
+		FOUND_CONTAINERS=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $2}')) # array with all kanto container names
+		# removes tabs, splits on pipe and takes the container status colum ($4)
+		FOUND_CONTAINERS_STATES=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $4}')) # array with all kanto container states
+		KANTO_CM_CONTAINERS_ARR=( $KANTO_CM_CONTAINERS_OPT )
+
+		for expectedCtr in ${KANTO_CM_CONTAINERS_ARR[@]}; do
+			CTR_IDX=$(get_array_element_index ${expectedCtr} ${FOUND_CONTAINERS[@]})
+			if [ ! -z $CTR_IDX ]; then
+				status=${FOUND_CONTAINERS_STATES[$CTR_IDX]}
+				if [ "$status" = "Running" ]; then
+					printf "  * %-40s : $TEXT_OK\n" "${expectedCtr}"
+				else
+					printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "$status"
+				fi
+			else
+				printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "NOT FOUND"
+			fi
+		done
+
+	else
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
+	fi
+
+fi
+
 
 printf -- "$SEPARATOR\n"
 printf -- "${COL_WHITE}[SDV Connectivity]${COL_NC}\n"
