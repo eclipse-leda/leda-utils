@@ -1,8 +1,13 @@
 # Leda Core Utilities
 
-Some optional utilities and scripts for the runtime:
+The Eclipse Leda core utilities are some some optional utilities and scripts for the runtime. They are considered convenient tools for development and testing purposes. They are pre-installed to the Leda Quickstart images.
+
+List of utilities:
+
 - *sdv-device-info*: Show and update device information
 - *sdv-health*: Show SDV software components health status
+- *kanto-auto-deployer*: Automatically deploys containers on boot
+- *kantui*: A text user interface for kanto-cm to manage containers (start, stop, logs)
 - *sdv-motd*: Message-of-the-Day shown after login prompt
 - *can-forward*: Forwarding a CAN-bus network interface into a containerized Vehicle Application
 
@@ -57,6 +62,7 @@ The `./sdv-health` utility display a status overview of some important dependenc
 The sdv health utility can be configured using the `sdv.conf` configuration file.
 
 Example output:
+
 ![](assets/sdv-health.png)
 
 ## can-forward
@@ -79,11 +85,86 @@ $ ./can-forward -p 1234 can0
 
 > **Note:** can-forward does currently not support looking up PID of Kubernetes pods.
 
+## Kanto Auto Deployer
+
+Automatically deploys containers to the Kanto Container Management based on deployment descriptors from a given path. All deployment descriptors in the manifests folder will be deployed (created and started) on startup of the service.
+
+Usage as a systemd service (`/lib/systemd/system/kanto-auto-deployer.service`):
+
+```
+[Unit]
+Description=Kanto Auto Deployer
+After=network-online.target container-management.service
+Wants=network-online.target container-management.service
+Requires=container-management.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/bin/kanto-auto-deployer /var/containers/manifests
+```
+
+Example output:
+```
+root@qemux86-64:/lib/systemd/system# systemctl status kanto-auto-deployer.service 
+* kanto-auto-deployer.service - Kanto Auto Deployer
+     Loaded: loaded (/lib/systemd/system/kanto-auto-deployer.service; enabled; vendor preset: enabled)
+     Active: inactive (dead) since Fri 2022-12-09 09:41:42 UTC; 7min ago
+    Process: 472 ExecStart=/usr/bin/kanto-auto-deployer /var/containers/manifests (code=exited, status=0/SUCCESS)
+   Main PID: 472 (code=exited, status=0/SUCCESS)
+
+Dec 09 09:41:33 qemux86-64 systemd[1]: Started Kanto Auto Deployer.
+Dec 09 09:41:33 qemux86-64 kanto-auto-deployer[472]: Creating [databroker]
+Dec 09 09:41:41 qemux86-64 kanto-auto-deployer[472]: Created [databroker]
+Dec 09 09:41:41 qemux86-64 kanto-auto-deployer[472]: Starting [databroker]
+Dec 09 09:41:42 qemux86-64 kanto-auto-deployer[472]: Started [databroker]
+Dec 09 09:41:42 qemux86-64 systemd[1]: kanto-auto-deployer.service: Deactivated successfully.
+```
+
+## KantUI
+
+Usage:
+
+    kantui
+
+Keyboard commands:
+- Arrow keys `Up` and `Down` to select a container
+- Arrow keys `Left` and `Right` to select a column
+- `Enter` to change the sort ordering of the currently selected column
+- `S` to start the selected container which is currently not running
+- `P` to stop the selected container
+- `R` to remove a container
+- `L` to show the log output of a container
+- `Q` to quit kantui
+
+Note: The mouse can be used to select ui items.
+
+Synopsis:
+```
+kantui 0.1.0
+A TUI for Kanto CM that allows easier management of deployed containers. Requires root.
+
+USAGE:
+    kantui [OPTIONS]
+
+OPTIONS:
+    -h, --help                 Print help information
+    -s, --socket <SOCKET>      Set the path to the kanto-cm UNIX socket [default:
+                               /run/container-management/container-management.sock]
+    -t, --timeout <TIMEOUT>    Time before sending a SIGKILL after a SIGTERM to a container
+                               (seconds) [default: 5]
+    -V, --version              Print version information
+```
+
 ## SDV Message of the Day
 
 The `sdv-motd` script provides an alternative motd profile, which displays some additional information after login.
 
 Example output:
+
 ![](assets/sdv-motd.png)
 
 # Requirements and installation
@@ -106,6 +187,6 @@ The utilities are pre-installed on Eclipse Leda Quickstart distros in the *SDV F
 
 # License and Copyright
 
-Please see (LICENSE)[LICENSE]
+Please see [LICENSE](LICENSE)
 
 
