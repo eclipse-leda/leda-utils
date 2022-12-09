@@ -25,6 +25,11 @@ use std::fs;
 use std::env;
 use glob::glob;
 
+fn print_usage() {
+    println!("USAGE:");
+    println!("  kant-auto-deployer [PATH TO MANIFESTS FOLDER]")
+}
+
 async fn start(_client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>, name: &String, _id: &String) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Starting [{}]", name);
@@ -73,13 +78,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut path = String::new();
     if args.len() == 2 {
         file_path.push_str(&args[1]);
-        file_path.push_str("/");
+        if file_path.eq("--help") || file_path.eq("-h") {
+            print_usage();
+            return Ok(());
+        }
         path.push_str(&file_path.clone())
     } else {
-        file_path.push_str("./");
+        file_path.push_str(".");
         path.push_str(&file_path.clone())
     }
-    file_path.push_str("*.json");
+    file_path.push_str("/*.json");
 
     let socket_path = "/run/container-management/container-management.sock";
     //The uri is ignored and a UDS connection is established instead.
@@ -89,14 +97,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the client
     let mut client = kanto::containers_client::ContainersClient::new(channel);
-
+    let mut b_found = false;
+    println!("Reading manifests from [{}]", path);
     let mut full_name = String::new();
     for entry in glob(&file_path)? {
         let name= entry?.display().to_string();
         full_name.push_str(&name);
+        b_found = true;
         create(&mut client, &full_name).await?;
         full_name.clear()
     }
-
+    if !b_found {
+        println!("No manifests are found in [{}]", path);
+        print_usage()
+    }
     Ok(())
 }
