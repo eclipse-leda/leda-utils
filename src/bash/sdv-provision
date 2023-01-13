@@ -12,98 +12,116 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 #
-# Configure the device
+# Generating dummy device certificates (self-signed) according to tutorial
+# https://learn.microsoft.com/en-us/azure/iot-hub/tutorial-x509-self-sign
 #
 #set -x
 
 echo "Checking Eclipse Leda Device Provisioning configuration..."
+    
+DEVICE_ID_FILE="/etc/deviceid"
 
-KUBECTL="kubectl"
-RESTART_REQUIRED=0
+CERT_DIR="/data/var/certificates"
 
-if ! command -v "$KUBECTL" > /dev/null
-then
-    echo "Error: $KUBECTL not found"
-    exit 1
-fi
-
-function checkCloudConnection() {
-    local secretname=$1
-    EXISTING_GHCR_IO=$($KUBECTL get secret ${secretname})
-    EXISTING_GHCR_IO_RC=$?
-    if [ ! ${EXISTING_GHCR_IO_RC} -eq 0 ]
-    then
-        echo "The Kubernetes Secret to identify the device (connection string) is not yet created, do you want to create it?"
-        select ync in "Yes" "No" "Cancel"; do
-            case $ync in
-                Yes )
-                    echo -n "Please enter Connection String of device: "
-                    read -s CONNSTRING
-                    echo -n "Creating secret..."
-                    $KUBECTL create secret generic ${secretname} --from-literal=PrimaryConnectionString=\"${CONNSTRING}\"
-                    echo "Done"
-                    RESTART_REQUIRED=1
-                    return 1
-                ;;
-                No )
-                    return 0
-                ;;
-                Cancel )
-                    exit
-                ;;
-            esac
-        done
-    else
-        echo "The secret \"${secretname}\" has already been created in Kubernetes."
-    fi
-}
-
-function checkContainerRegistry() {
-    local secretname=$1
-    local crhostname=$2
-    EXISTING_SECRET=$($KUBECTL get secret ${secretname})
-    EXISTING_SECRET_RC=$?
-    if [ ! ${EXISTING_SECRET_RC} -eq 0 ]
-    then
-        echo "The Kubernetes Secret to pull container images from a private container registry are missing, do you want to create them?"
-        select ync in "Yes" "No" "Cancel"; do
-            case $ync in
-                Yes )
-                    echo -n "Please enter username (eg GitHub Username): "
-                    read GHCR_USERNAME
-                    echo -n "Please enter password (eg GitHub Personal Access Token): "
-                    read -s GHCR_PAT
-                    echo "Creating secret..."
-                    $KUBECTL create secret docker-registry ${secretname} \
-                            --docker-server=${crhostname} \
-                            --docker-username=\"$GHCR_USERNAME\" \
-                            --docker-password=\"$GHCR_PAT\"
-                    echo "Done"
-                    RESTART_REQUIRED=1
-                    return 1
-                ;;
-                No )
-                    return 0
-                ;;
-                Cancel )
-                    exit
-                ;;
-            esac
-        done
-    else
-        echo "The secret \"${secretname}\" has already been created in Kubernetes."
-    fi
-}
-
-checkCloudConnection "cloudagent"
-checkContainerRegistry "ghcr-io" "ghcr.io"
-
-if [ ${RESTART_REQUIRED} -eq 1 ]
-then
-    echo "Forcing a reload of the cloudagent..."
-    $KUBECTL rollout restart deployment/cloudagent
+if [ -d ${CERT_DIR} ]; then
+    echo "- Certificates directory exists"
 else
-    echo "Nothing to do"
+    echo "- Creating ${CERT_DIR}"
+    mkdir -p ${CERT_DIR}
 fi
 
-echo "Device provisioning finished, check with `sdv-health`"
+
+CERT_FILE="${CERT_DIR}/device.crt"
+KEY_FILE="${CERT_DIR}/device.key"
+
+CERT_FILE2="${CERT_DIR}/device2.crt"
+KEY_FILE2="${CERT_DIR}/device2.key"
+
+loadDeviceId() {
+    echo "Checking Device ID"
+
+    NET_DEV=$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")
+    echo "- Based on network device: ${NET_DEV}"
+
+    if [ -z ${NET_DEV} ]; then
+        echo "Missing network device or default route on network device, aborting"
+        exit 1
+    fi
+
+    # Fallback, in case run-postinsts is not running
+    if [ ! -f "${DEVICE_ID_FILE}" ];
+    then
+        echo "- File does not exist, creating: ${DEVICE_ID_FILE}"
+        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/${NET_DEV}/address)
+        echo ${DEVICE_ID} > /etc/deviceid
+    fi
+
+    # Fallback, in case we do not have write access to /etc
+    if [ ! -f "${DEVICE_ID_FILE}" ];
+    then
+        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/${NET_DEV}/address)
+    else
+        DEVICE_ID=$(cat /etc/deviceid)
+    fi
+
+    echo "- Device ID: ${DEVICE_ID}"
+}
+
+generateDeviceCertificates() {
+    echo "Generating"
+
+    DEVICE_CSR_1=$(mktemp -t leda-device1-csr-XXXXXX)
+    DEVICE_CERT_1=$(mktemp -t leda-device1-crt-XXXXXX)
+    DEVICE_KEY_1=$(mktemp -t leda-device1-key-XXXXXX)
+    
+    DEVICE_CSR_2=$(mktemp -t leda-device2-csr-XXXXXX)
+    DEVICE_CERT_2=$(mktemp -t leda-device2-crt-XXXXXX)
+    DEVICE_KEY_2=$(mktemp -t leda-device2-key-XXXXXX)
+
+    echo "- private keys"
+    openssl genpkey -out ${DEVICE_KEY_1} -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
+    openssl genpkey -out ${DEVICE_KEY_2} -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
+    echo "- certificate signing requests"
+    openssl req -new -key ${DEVICE_KEY_1} -out ${DEVICE_CSR_1} -subj "/CN=${DEVICE_ID}" 2>/dev/null
+    openssl req -new -key ${DEVICE_KEY_2} -out ${DEVICE_CSR_2} -subj "/CN=${DEVICE_ID}" 2>/dev/null
+    #openssl req -text -in ${DEVICE_CSR_1} -noout
+    #openssl req -text -in ${DEVICE_CSR_2} -noout
+    echo "- self-signing certificates"
+    openssl x509 -req -days 365 -in ${DEVICE_CSR_1} -signkey ${DEVICE_KEY_1} -out ${DEVICE_CERT_1} 2>/dev/null
+    openssl x509 -req -days 365 -in ${DEVICE_CSR_2} -signkey ${DEVICE_KEY_2} -out ${DEVICE_CERT_2} 2>/dev/null
+
+    echo "Installing device certificates ..."
+    cp -v ${DEVICE_CERT_1} ${CERT_FILE}
+    cp -v ${DEVICE_KEY_1} ${KEY_FILE}
+    cp -v ${DEVICE_CERT_2} ${CERT_FILE2}
+    cp -v ${DEVICE_KEY_2} ${KEY_FILE2}
+}
+
+showDeviceCerts() {
+    echo "- Primary device certificate: ${CERT_FILE}"
+    echo "- Primary device private key: ${KEY_FILE}"
+    echo "- Secondary device certificate: ${CERT_FILE2}"
+    echo "- Secondary device private key: ${KEY_FILE2}"
+
+    echo "Fingerprints (add these to the Azure IoT Hub Device)"
+    THUMB_1=$(openssl x509 -in ${CERT_FILE} -noout -fingerprint | cut -f2 -d'=' | tr -d ':')
+    THUMB_2=$(openssl x509 -in ${CERT_FILE2} -noout -fingerprint | cut -f2 -d'=' | tr -d ':')
+    echo "- Primary thumbprint: ${THUMB_1}"
+    echo "- Secondary thumbprint: ${THUMB_2}"
+}
+
+loadDeviceId
+
+echo "Checking device certificates"
+if [ -f ${CERT_FILE} ] && [ -f ${KEY_FILE} ] && [ -f ${CERT_FILE2} ] && [ -f ${KEY_FILE2} ]; then
+    echo "- All device certificates are present"
+else
+    echo "- Some certificates are missing"
+    generateDeviceCertificates
+
+    echo "- Restarting cloud connector"
+    kanto-cm stop -n cloudconnector -f --timeout 5
+    kanto-cm start -n cloudconnector
+fi
+
+showDeviceCerts
