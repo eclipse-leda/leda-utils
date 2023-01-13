@@ -44,10 +44,15 @@ LOAD3=`echo "$LOAD" | awk '{print $3}'`	# Last fifteen minutes
 { TEMP=`vcgencmd measure_temp | cut -c '6-' | sed "s/'C//"`; } 2>/dev/null
 
 # Disk usage
-DISK=`df -h | grep ' /$'`
-DISK1=`echo "$DISK" | awk '{print $2}'`	# Total
-DISK2=`echo "$DISK" | awk '{print $3}'`	# Used
-DISK3=`echo "$DISK" | awk '{print $4}'`	# Free
+ROOT_DISK=`df -h | grep ' /$'`
+ROOT_DISK1=`echo "$ROOT_DISK" | awk '{print $2}'`	# Total
+ROOT_DISK2=`echo "$ROOT_DISK" | awk '{print $3}'`	# Used
+ROOT_DISK3=`echo "$ROOT_DISK" | awk '{print $4}'`	# Free
+
+DATA_DISK=`df -h | grep ' /data$'`
+DATA_DISK1=`echo "$DATA_DISK" | awk '{print $2}'`	# Total
+DATA_DISK2=`echo "$DATA_DISK" | awk '{print $3}'`	# Used
+DATA_DISK3=`echo "$DATA_DISK" | awk '{print $4}'`	# Free
 
 # Memory usage
 RAM=`free -h | tr -d 'i'`
@@ -57,28 +62,37 @@ RAM3=`echo "$RAM" | grep 'Mem' | awk '{print $4}'`	# Free
 #RAM4=`echo "$RAM" | grep 'Swap' | awk '{print $3}'`	# Swap used
 
 # Get IP adress
+NET_DEV=$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")
 IP=`ip address show scope global`
-IP_ETH0=`echo "$IP" | awk '/scope global .*eth0/ {print $2}/scope global .*wlan0/ {print $2}' | xargs`
-IP_WLAN0=`echo "$IP" | awk '/scope global .*wlan0/ {print $2}' | xargs`
-IP_MLAN0=`echo "$IP" | awk '/scope global .*mlan0/ {print $2}' | xargs`
+#IP_ETH0=$(echo "$IP" | awk "/scope global .*${NET_DEV}/ {print $2}" | xargs)
+IP_NET=$(ip a s ${NET_DEV} | egrep -o 'inet [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | cut -d' ' -f2)
+
+# Containers stats
+CONTAINERS_TOTAL=$(kanto-cm list | grep "Running\|Stopped\|Exited" | wc -l)
+CONTAINERS_RUNNING=$(kanto-cm list | grep Running | wc -l)
+CONTAINERS_STOPPED=$(kanto-cm list | grep Stopped | wc -l)
+CONTAINERS_EXITED=$(kanto-cm list | grep Exited | wc -l)
 
 # Fancy status report
 echo -e "\033[1;32m
 \033[1;32m \033[0;37mHostname......: \033[1;33m$HOSTNAME
 \033[1;31m \033[0;37mUptime........: $UP1 days, $UP2:$UP3 hours
 \033[1;31m \033[0;37m\0303\0230 System load.: $LOAD1 (1min) \t| $LOAD2 (5min) \t| $LOAD3 (15min)
-\033[1;31m \033[0;37mDisk Space....: Total: $DISK1 \t| Used: $DISK2 \t| Free: $DISK3
+\033[1;31m \033[0;37mDisk Space....: Root: $ROOT_DISK1 \t| Used: $ROOT_DISK2 \t| Free: $ROOT_DISK3
+\033[1;31m \033[0;37m                Data: $DATA_DISK1 \t| Used: $DATA_DISK2 \t| Free: $DATA_DISK3
 \033[1;31m \033[0;37mRAM ..........: Total: $RAM1 \t| Used: $RAM2 \t| Free: $RAM3
-\033[1;31m \033[0;37mIP-Addresses..: Eth0: \033[1;35m$IP_ETH0
-\033[1;31m \033[0;37m                WiFi: \033[1;35m$IP_WLAN0
+\033[1;31m \033[0;37mNetwork.......: Interface : \033[1;35m$NET_DEV
+\033[1;31m \033[0;37m                IP Address: \033[1;35m$IP_NET
+\033[1;31m \033[0;37mContainers....: ${CONTAINERS_RUNNING} running \t| ${CONTAINERS_STOPPED} stopped \t| ${CONTAINERS_EXITED} exited
 \033[m"
 
 echo -e "To check SDV services health, run \033[0;37m$ \033[1;33msdv-health\033[m"
 echo -e "Use \033[0;37m$ \033[1;33msdv-device-info\033[m to display device configuration"
+echo -e "Use \033[0;37m$ \033[1;33msdv-provision\033[m to generate self-signed device certificates"
 echo -e "\033[m"
 
-if ! systemctl is-active --quiet k3s; then
-    echo -e "\033[1;35mWarning: \033[1;33m Kubernetes Control Plane is not yet up and running.\033[m\n"
+if ! systemctl is-active --quiet container-management; then
+    echo -e "\033[1;35mWarning: \033[1;33m Container Management is not yet up and running.\033[m\n"
 fi
 
 # Inform about pending reboot
