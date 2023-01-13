@@ -53,7 +53,7 @@ while [ -n "$1" ]; do
 		export COL_GRAY=""
 		export COL_NC_BOLD=""
 	elif [ "$1" = "--help" ] || [ "$1" = "help" ] || [ "$1" = "-h" ]; then
-    echo "sdv-device-info v0.1"
+    echo "sdv-device-info v0.2"
 		echo "Usage: $0 [options] [command]"
     echo "Show SDV device configuration information"
     echo "Example: $0 show"
@@ -79,8 +79,10 @@ while [ -n "$1" ]; do
 done
 
 function loadDeviceInfo() {
-  MOSQUITTO_HOST=$(kubectl get service/mosquitto -o jsonpath='{.spec.clusterIP}' --request-timeout='60s')
-  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
+  MOSQUITTO_HOST="localhost"
+  MOSQUITTO_TOPIC="edge/thing/request"
+  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t '${MOSQUITTO_TOPIC}' -e 'edge/thing/response' -W 1 -m '')
+  MOSQUITTO_RC=$?
   FULL_CONNECTION_IDENTIFIER=$(echo "$PAYLOAD" | jq .deviceId | tr -d '"')
   TENANT_ID=$(echo "$PAYLOAD" | jq .tenantId | tr -d '"')
   CLOUD_HUB=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 1)
@@ -88,14 +90,47 @@ function loadDeviceInfo() {
   HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
 }
 
-function showDeviceInfo() {
+function showConnectorDeviceInfo() {
   loadDeviceInfo
-  printf -- "${COL_WHITE}[SDV Device Configuration]${COL_NC}\n"
-  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Connection Identifier:"  "${FULL_CONNECTION_IDENTIFIER}"
-  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Tenant ID:"  "${TENANT_ID}"
-  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Cloud Backend:"  "${CLOUD_HUB}"
-  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "${DEVICE_ID}"
-  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "IoT Hub:"  "${HUB_HOSTNAME}"
+  printf -- "${COL_WHITE}[Cloud Connector - Device Information]${COL_NC}\n"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Mosquitto Hostname:"  "${MOSQUITTO_HOST}"
+  printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Mosquitto Topic:"  "${MOSQUITTO_TOPIC}"
+  if [ ${MOSQUITTO_RC} == 27 ]; then
+    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (Time out waiting for reply ${MOSQUITTO_RC})"
+  elif [ ${MOSQUITTO_RC} ]; then
+    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (exit code ${MOSQUITTO_RC})"
+  else
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Connection Identifier:"  "${FULL_CONNECTION_IDENTIFIER}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Tenant ID:"  "${TENANT_ID}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Cloud Backend:"  "${CLOUD_HUB}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Device ID:"  "${DEVICE_ID}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "IoT Hub:"  "${HUB_HOSTNAME}"
+  fi
+}
+
+function showCertificateDeviceInfo() {
+  CERT_FILE="/data/var/certificates/device.crt"
+  KEY_FILE="/data/var/certificates/device.key"
+  printf -- "${COL_WHITE}[Device Certificate Information]${COL_NC}\n"
+  if [ -f ${CERT_FILE} ]; then
+    CERT_CN=$(openssl x509 -subject -noout -in ${CERT_FILE})
+    CERT_ISSUER=$(openssl x509 -issuer -noout -in ${CERT_FILE})
+    CERT_STARTDATE=$(openssl x509 -startdate -noout -in ${CERT_FILE})
+    CERT_ENDDATE=$(openssl x509 -enddate -noout -in ${CERT_FILE})
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Certificate file:"  "${CERT_FILE}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Common Name:"  "${CERT_CN}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Issuer:"  "${CERT_ISSUER}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Start Date:"  "${CERT_STARTDATE}"
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "End Date:"  "${CERT_ENDDATE}"
+  else
+    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Certificate file:"  "ERROR (${CERT_FILE} not found)"
+  fi
+
+  if [ -f ${KEY_FILE} ]; then
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Key file:"  "${KEY_FILE}"
+  else
+    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Key file:"  "ERROR (${KEY_FILE} not found)"
+  fi
 }
 
 if [ "$COMMAND" = "env" ]; then
@@ -111,7 +146,8 @@ fi
 init_colors
 
 if [ -z $COMMAND ] | [ "$COMMAND" = "show" ]; then
- showDeviceInfo
+ showConnectorDeviceInfo
+ showCertificateDeviceInfo
  exit 0
 fi
 
