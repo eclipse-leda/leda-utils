@@ -121,6 +121,7 @@ loadDeviceId
 
 # WHen the configuration has changed, we need to recreate the container
 recreateCloudConnectorContainer() {
+    echo "Recreating the Cloud Connector container..."
     kanto-cm stop -n cloudconnector -f --timeout 5
     kanto-cm remove -n cloudconnector
     systemctl restart kanto-auto-deployer
