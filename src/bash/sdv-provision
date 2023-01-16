@@ -146,6 +146,8 @@ configureIdScope() {
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
             local tmp=$(mktemp -t leda-idscope-XXXXXX)
             
+            # Add the environment variable ("ID_SCOPE=xxx") to the JSON Array in the cloudconnector.json
+            # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
             jq ".config.env += [\"ID_SCOPE=$idscope\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
 
             # Show the diff:
@@ -172,6 +174,8 @@ configureConnectionString() {
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
             local tmp=$(mktemp -t leda-idscope-XXXXXX)
             
+            # Add the environment variable ("CONNECTION_STRING=xxx") to the JSON Array in the cloudconnector.json
+            # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
             jq ".config.env += [\"CONNECTION_STRING=$connectionstring\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
 
             # Show the diff:
