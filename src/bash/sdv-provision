@@ -20,8 +20,14 @@
 echo "Checking Eclipse Leda Device Provisioning configuration..."
     
 DEVICE_ID_FILE="/etc/deviceid"
-
 CERT_DIR="/data/var/certificates"
+
+# Azure IoT - Device Provisioning (User-configured configuration, credentials)
+DATA_AZURE_ID_SCOPE_FILE="/data/var/certificates/azure.idscope"
+DATA_AZURE_CONNECTION_STRING_FILE="/data/var/certificates/azure.connectionstring"
+
+CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE="/data/var/containers/manifests/cloudconnector.json.template"
+CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR="/data/var/containers/manifests/cloudconnector.json"
 
 if [ -d ${CERT_DIR} ]; then
     echo "- Certificates directory exists"
@@ -111,6 +117,115 @@ showDeviceCerts() {
 }
 
 loadDeviceId
+
+
+# WHen the configuration has changed, we need to recreate the container
+recreateCloudConnectorContainer() {
+    kanto-cm stop -n cloudconnector -f --timeout 5
+    kanto-cm remove -n cloudconnector
+    systemctl restart kanto-auto-deployer
+}
+
+
+# For the cloud connection to know which backend to use, we either need
+# - id_scope -> connect to global Azure IoT Device Provisioning Service and use id_scope to know which tenant
+# - ConnectionString -> connect to Hostname using DeviceID. When using certificates, the connectionstring is not supposed to contain a SharedAccessKey
+
+configureIdScope() {
+    while true; do
+        read -p "Please enter your Id Scope of the Azure IoT Device Provisioning Service:" idscope
+        if [ -n ${idscope} ]; then
+            echo ${idscope} > ${DATA_AZURE_ID_SCOPE_FILE}
+
+            # Modify the cloudconnector.json deployment descriptor
+            local sourcejson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE}"
+            if [ ! -f ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE} ]; then
+                sourcejson=${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}
+            fi
+            local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+            local tmp=$(mktemp -t leda-idscope-XXXXXX)
+            
+            jq ".config.env += [\"ID_SCOPE=$idscope\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
+
+            # Show the diff:
+            # diff <(jq --sort-keys . ${sourcejson}) <(jq --sort-keys . ${targetjson})
+
+            break
+        fi
+        echo "The id scope does not seem to be valid, please enter a valid id scope"
+    done
+    
+}
+
+configureConnectionString() {
+    while true; do
+        read -p "Please enter the device Connection String of the Azure IoT Hub:" connectionstring
+        if [ -n ${connectionstring} ]; then
+            echo ${connectionstring} > ${DATA_AZURE_CONNECTION_STRING_FILE}
+
+            # Modify the cloudconnector.json deployment descriptor
+            local sourcejson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE}"
+            if [ ! -f ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE} ]; then
+                sourcejson=${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}
+            fi
+            local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+            local tmp=$(mktemp -t leda-idscope-XXXXXX)
+            
+            jq ".config.env += [\"CONNECTION_STRING=$connectionstring\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
+
+            # Show the diff:
+            # diff <(jq --sort-keys . ${sourcejson}) <(jq --sort-keys . ${targetjson})
+
+            break
+        fi
+        echo "The connection string does not seem to be valid, please enter a valid connection string"
+    done
+}
+
+ensureIdScopeOrConnectionString() {
+    echo "Checking whether either IdScope or ConnectionString is configured"
+
+    if [ -f ${DATA_AZURE_ID_SCOPE_FILE} ] && [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ] ; then
+        echo "WARNING: Both Id Scope file and Connection String files are present, which may be an invalid configuration."
+    fi
+
+    if [ -f ${DATA_AZURE_ID_SCOPE_FILE} ]; then
+        echo "- Id Scope file found: ${DATA_AZURE_ID_SCOPE_FILE}"
+        if grep -q "$(cat ${DATA_AZURE_ID_SCOPE_FILE})" ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}; then
+            echo "- Id Scope configured in cloudconnector deployment descriptor ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+            return
+        else
+            echo "ERROR: Id Scope not found in cloudconnector deployment descriptor ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+        fi
+    fi
+    
+    if [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ]; then
+        echo "- ConnectionString file found: ${DATA_AZURE_CONNECTION_STRING_FILE}"
+        if grep -q "$(cat ${DATA_AZURE_CONNECTION_STRING_FILE})" ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}; then
+            echo "- Connection String configured in cloudconnector deployment descriptor ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+            return
+        else
+            echo "ERROR: Connection String not found in cloudconnector deployment descriptor ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
+        fi
+    fi
+
+    echo " - Neither Id Scope file nor ConnectionString found, needs manual configuration"
+    while true; do
+        echo "Do you want to use the global Azure IoT Device Provisioning Service (DPS) by using an Id Scope, or do you want to use a direct connection to a specific Azure IoT Hub using a Connection String?"
+        echo "d) Azure IoT Device Provisioning Service (DPS) with Id Scope"
+        echo "h) Azure IoT Hub with Connection String"
+        read -p "Choose:" dh
+        case $dh in
+            [Dd]* ) configureIdScope; break;;
+            [Hh]* ) configureConnectionString; break;;
+            * ) echo "Please answer with 'd' for Azure Device Provisioning Service (DPS) or 'h' for Azure IoT Hub.";;
+        esac
+    done
+
+    recreateCloudConnectorContainer
+}
+
+ensureIdScopeOrConnectionString
 
 echo "Checking device certificates"
 if [ -f ${CERT_FILE} ] && [ -f ${KEY_FILE} ] && [ -f ${CERT_FILE2} ] && [ -f ${KEY_FILE2} ]; then
