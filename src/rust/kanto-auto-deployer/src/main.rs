@@ -27,7 +27,7 @@ use glob::glob;
 
 fn print_usage() {
     println!("USAGE:");
-    println!("  kant-auto-deployer [PATH TO MANIFESTS FOLDER]")
+    println!("  kanto-auto-deployer [PATH TO MANIFESTS FOLDER]")
 }
 
 async fn start(_client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>, name: &String, _id: &String) -> Result<(), Box<dyn std::error::Error>> {
@@ -82,10 +82,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             print_usage();
             return Ok(());
         }
-        path.push_str(&file_path.clone())
+        path.push_str(&file_path.clone());
     } else {
         file_path.push_str(".");
-        path.push_str(&file_path.clone())
+        path.push_str(&file_path.clone());
     }
     file_path.push_str("/*.json");
 
@@ -108,11 +108,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(_) => {},
             Err(e) => println!("[CM error] Failed to create container: {}", e)
         };
-        full_name.clear()
+        full_name.clear();
     }
     if !b_found {
         println!("No manifests are found in [{}]", path);
-        print_usage()
+        print_usage();
     }
     Ok(())
 }
