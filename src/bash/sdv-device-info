@@ -91,14 +91,13 @@ done
 
 function loadDeviceInfo() {
   MOSQUITTO_HOST="localhost"
-  MOSQUITTO_TOPIC="edge/thing/request"
-  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t '${MOSQUITTO_TOPIC}' -e 'edge/thing/response' -W 1 -m '')
+  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
   MOSQUITTO_RC=$?
   FULL_CONNECTION_IDENTIFIER=$(echo "$PAYLOAD" | jq .deviceId | tr -d '"')
   TENANT_ID=$(echo "$PAYLOAD" | jq .tenantId | tr -d '"')
   CLOUD_HUB=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 1)
-  DEVICE_ID=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 2)
-  HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
+  HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 2)
+  DEVICE_ID=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
 
   if [ -z ${FULL_CONNECTION_IDENTIFIER} ]; then
     if [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ]; then
@@ -121,7 +120,7 @@ function showConnectorDeviceInfo() {
   printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Mosquitto Topic:"  "${MOSQUITTO_TOPIC}"
   if [ ${MOSQUITTO_RC} == 27 ]; then
     printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (Time out waiting for reply ${MOSQUITTO_RC})"
-  elif [ ${MOSQUITTO_RC} ]; then
+  elif [ ${MOSQUITTO_RC} != 0 ]; then
     printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (exit code ${MOSQUITTO_RC})"
   else
     printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Connection Identifier:"  "${FULL_CONNECTION_IDENTIFIER}"
