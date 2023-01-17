@@ -100,11 +100,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut b_found = false;
     println!("Reading manifests from [{}]", path);
     let mut full_name = String::new();
-    for entry in glob(&file_path)? {
-        let name= entry?.display().to_string();
+    for entry in glob(&file_path).expect("Failed to parse glob pattern") {
+        let name = entry.expect("Path to entry is unreadable").display().to_string();
         full_name.push_str(&name);
         b_found = true;
-        create(&mut client, &full_name).await?;
+        match create(&mut client, &full_name).await {
+            Ok(_) => {},
+            Err(e) => println!("[CM error] Failed to create container: {}", e)
+        };
         full_name.clear()
     }
     if !b_found {
