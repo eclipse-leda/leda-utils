@@ -127,10 +127,12 @@ pub fn get_current_container(s: &mut cursive::Cursive) -> Option<ContainersTable
 }
 
 pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
-    let logs_view = Dialog::around(TextView::new(logs))
+    let mut logs_view = Dialog::around(TextView::new(logs))
         .title("Container Logs")
         .button("Ok (Esc)", |s| try_best(s.pop_layer()))
         .scrollable();
+    
+    logs_view.set_scroll_strategy(cursive::view::ScrollStrategy::StickToBottom);
 
     siv.add_global_callback(cursive::event::Key::Esc, |s| {
         try_best(s.pop_layer());
