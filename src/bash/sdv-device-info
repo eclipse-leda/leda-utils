@@ -17,6 +17,17 @@
 COMMAND="show"
 AUTORESTART=1
 
+DEVICE_ID_FILE="/etc/deviceid"
+
+DATA_AZURE_ID_SCOPE_FILE="/data/var/certificates/azure.idscope"
+DATA_AZURE_CONNECTION_STRING_FILE="/data/var/certificates/azure.connectionstring"
+
+CERT_FILE1="/data/var/certificates/device.crt"
+KEY_FILE1="/data/var/certificates/device.key"
+
+CERT_FILE2="/data/var/certificates/device2.crt"
+KEY_FILE2="/data/var/certificates/device2.key"
+
 COL_NC='\e[39m'
 COL_RED='\e[31m'
 COL_GREEN='\e[32m'
@@ -80,24 +91,36 @@ done
 
 function loadDeviceInfo() {
   MOSQUITTO_HOST="localhost"
-  MOSQUITTO_TOPIC="edge/thing/request"
-  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t '${MOSQUITTO_TOPIC}' -e 'edge/thing/response' -W 1 -m '')
+  PAYLOAD=$(mosquitto_rr -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
   MOSQUITTO_RC=$?
   FULL_CONNECTION_IDENTIFIER=$(echo "$PAYLOAD" | jq .deviceId | tr -d '"')
   TENANT_ID=$(echo "$PAYLOAD" | jq .tenantId | tr -d '"')
   CLOUD_HUB=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 1)
-  DEVICE_ID=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 2)
-  HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
+  HUB_HOSTNAME=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 2)
+  DEVICE_ID=$(echo "$FULL_CONNECTION_IDENTIFIER" | cut -d ':' -f 3)
+
+  if [ -z ${FULL_CONNECTION_IDENTIFIER} ]; then
+    if [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ]; then
+      FULL_CONNECTION_IDENTIFIER=$(cat ${DATA_AZURE_CONNECTION_STRING_FILE})
+    fi
+  fi
+
+  if [ -z ${DEVICE_ID} ]; then
+    if [ -f ${DEVICE_ID_FILE} ]; then
+      DEVICE_ID=$(cat ${DEVICE_ID_FILE})
+    fi
+  fi
+
 }
 
 function showConnectorDeviceInfo() {
   loadDeviceInfo
-  printf -- "${COL_WHITE}[Cloud Connector - Device Information]${COL_NC}\n"
+  printf -- "${COL_WHITE}[Device Information - Cloud Connector]${COL_NC}\n"
   printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Mosquitto Hostname:"  "${MOSQUITTO_HOST}"
   printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Mosquitto Topic:"  "${MOSQUITTO_TOPIC}"
   if [ ${MOSQUITTO_RC} == 27 ]; then
     printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (Time out waiting for reply ${MOSQUITTO_RC})"
-  elif [ ${MOSQUITTO_RC} ]; then
+  elif [ ${MOSQUITTO_RC} != 0 ]; then
     printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Status:"  "ERROR (exit code ${MOSQUITTO_RC})"
   else
     printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Connection Identifier:"  "${FULL_CONNECTION_IDENTIFIER}"
@@ -108,15 +131,40 @@ function showConnectorDeviceInfo() {
   fi
 }
 
+function showConfigurationFiles() {
+  printf -- "${COL_WHITE}[Device Information - Configuration]${COL_NC}\n"
+  
+  if [ -f ${DEVICE_ID_FILE} ]; then
+    FILE_DEVICE_ID=$(cat ${DEVICE_ID_FILE})
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC} (in %s)\n" "Device Id:" "${FILE_DEVICE_ID}" "${DEVICE_ID_FILE}"
+  fi
+
+  if [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ]; then
+    CONN_STRING=$(cat ${DATA_AZURE_CONNECTION_STRING_FILE})
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC} (in %s)\n" "Connection String:" "${CONN_STRING}" "${DATA_AZURE_CONNECTION_STRING_FILE}"
+  fi
+
+  if [ -f ${DATA_AZURE_ID_SCOPE_FILE} ]; then
+    ID_SCOPE=$(cat ${DATA_AZURE_ID_SCOPE_FILE})
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC} (in %s)\n" "DPS Id Scope:"  "${ID_SCOPE}" "${DATA_AZURE_ID_SCOPE_FILE}"
+  fi
+
+}
+
 function showCertificateDeviceInfo() {
-  CERT_FILE="/data/var/certificates/device.crt"
-  KEY_FILE="/data/var/certificates/device.key"
+  local CERT_FILE="$1"
+  local KEY_FILE="$2"
   printf -- "${COL_WHITE}[Device Certificate Information]${COL_NC}\n"
+  if [ -f ${KEY_FILE} ]; then
+    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Key file:"  "${KEY_FILE}"
+  else
+    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Key file:"  "ERROR (${KEY_FILE} not found)"
+  fi
   if [ -f ${CERT_FILE} ]; then
     CERT_CN=$(openssl x509 -subject -noout -in ${CERT_FILE})
     CERT_ISSUER=$(openssl x509 -issuer -noout -in ${CERT_FILE})
-    CERT_STARTDATE=$(openssl x509 -startdate -noout -in ${CERT_FILE})
-    CERT_ENDDATE=$(openssl x509 -enddate -noout -in ${CERT_FILE})
+    CERT_STARTDATE=$(openssl x509 -startdate -noout -in ${CERT_FILE} | cut -f2 -d'=')
+    CERT_ENDDATE=$(openssl x509 -enddate -noout -in ${CERT_FILE} | cut -f2 -d'=')
     printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Certificate file:"  "${CERT_FILE}"
     printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Common Name:"  "${CERT_CN}"
     printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Issuer:"  "${CERT_ISSUER}"
@@ -126,10 +174,19 @@ function showCertificateDeviceInfo() {
     printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Certificate file:"  "ERROR (${CERT_FILE} not found)"
   fi
 
-  if [ -f ${KEY_FILE} ]; then
-    printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Key file:"  "${KEY_FILE}"
-  else
-    printf -- "  * %-23s : ${COL_RED}%s${COL_NC}\n" "Key file:"  "ERROR (${KEY_FILE} not found)"
+}
+
+function showCertificateFingerprints() {
+  local CERT_FILE1="$1"
+  local CERT_FILE2="$2"
+  printf -- "${COL_WHITE}[Device Certificate Fingerprints]${COL_NC}\n"
+  if [ -f ${CERT_FILE1} ]; then
+      CERT_FINGERPRINT1=$(openssl x509 -in ${CERT_FILE1} -noout -fingerprint | cut -f2 -d'=' | tr -d ':')
+      printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Fingerprint 1:"  "${CERT_FINGERPRINT1}"
+  fi
+  if [ -f ${CERT_FILE2} ]; then
+      CERT_FINGERPRINT2=$(openssl x509 -in ${CERT_FILE2} -noout -fingerprint | cut -f2 -d'=' | tr -d ':')
+      printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "Fingerprint 2:"  "${CERT_FINGERPRINT2}"
   fi
 }
 
@@ -147,7 +204,10 @@ init_colors
 
 if [ -z $COMMAND ] | [ "$COMMAND" = "show" ]; then
  showConnectorDeviceInfo
- showCertificateDeviceInfo
+ showConfigurationFiles
+ showCertificateDeviceInfo "${CERT_FILE1}" "${KEY_FILE1}"
+ showCertificateDeviceInfo "${CERT_FILE2}" "${KEY_FILE2}"
+ showCertificateFingerprints "${CERT_FILE1}" "${CERT_FILE2}"
  exit 0
 fi
 
