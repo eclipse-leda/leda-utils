@@ -129,19 +129,21 @@ fn run_ui(
     siv.add_fullscreen_layer(
         Dialog::around(table.with_name(table::TABLE_IDENTIFIER).full_screen())
             .title("Kanto Container Management")
-            .button("[S]tart", start_cb.clone())
-            .button("Sto[P]", stop_cb.clone())
-            .button("[R]emove", remove_cb.clone())
-            .button("[L]ogs", get_logs_cb.clone())
-            .button("[Q]uit", |s| s.quit()),
+            .button(config.keyconfig.start_btn_name, start_cb.clone())
+            .button(config.keyconfig.stop_btn_name, stop_cb.clone())
+            .button(config.keyconfig.remove_btn_name, remove_cb.clone())
+            .button(config.keyconfig.logs_btn_name, get_logs_cb.clone())
+      //      .button(config.keyconfig.redeploy_btn_name, get_logs_cb.clone())
+            .button(config.keyconfig.quit_btn_name, |s| s.quit()),
     );
 
     // Add keyboard shortcuts
-    siv.add_global_callback('s', start_cb.clone());
-    siv.add_global_callback('p', stop_cb.clone());
-    siv.add_global_callback('r', remove_cb.clone());
-    siv.add_global_callback('l', get_logs_cb.clone());
-    siv.add_global_callback('q', |s| s.quit());
+    siv.add_global_callback(config.keyconfig.start_kbd_key, start_cb.clone());
+    siv.add_global_callback(config.keyconfig.stop_kbd_key, stop_cb.clone());
+    siv.add_global_callback(config.keyconfig.remove_kbd_key, remove_cb.clone());
+    siv.add_global_callback(config.keyconfig.logs_kbd_key, get_logs_cb.clone());
+    //siv.add_global_callback(config.keyconfig.redeploy_kbd_key, get_logs_cb.clone());
+    siv.add_global_callback(config.keyconfig.quit_kbd_key, |s| s.quit());
 
     siv.set_fps(30);
 

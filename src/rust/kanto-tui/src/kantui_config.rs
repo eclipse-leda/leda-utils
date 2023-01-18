@@ -38,6 +38,23 @@ pub struct AppConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct KeyConfig {
+    pub start_btn_name: String,
+    pub start_kbd_key: char,
+
+    pub stop_btn_name: String,
+    pub stop_kbd_key: char,
+
+    pub remove_btn_name: String,
+    pub remove_kbd_key: char,
+
+    pub logs_btn_name: String,
+    pub logs_kbd_key: char,
+
+    pub quit_btn_name: String,
+    pub quit_kbd_key: char,
+
+    pub redeploy_btn_name: String,
+    pub redeploy_kbd_key: char,
     pub redeploy_command: String,
 }
 
