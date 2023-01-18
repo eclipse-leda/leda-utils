@@ -24,6 +24,7 @@ enum KantoRequest {
     StopContainer(String, i64),       // ID, timeout
     RemoveContainer(String),          // ID
     GetLogs(String),                  // ID
+    Redeploy,
 }
 
 #[derive(Debug)]
@@ -85,6 +86,9 @@ async fn tokio_main(
                             .await,
                     );
                 }
+                KantoRequest::Redeploy => {
+                    try_best(kanto_api::redeploy_containers(&config.keyconfig.redeploy_command).await);
+                }
             }
         }
     }
@@ -126,6 +130,10 @@ fn run_ui(
         }
     });
 
+    let redeploy_cb = enclose::enclose!((tx_requests) move |_s: &mut Cursive| {
+        try_best(tx_requests.try_send(KantoRequest::Redeploy, RequestPriority::Normal));
+    });
+
     siv.add_fullscreen_layer(
         Dialog::around(table.with_name(table::TABLE_IDENTIFIER).full_screen())
             .title("Kanto Container Management")
@@ -133,7 +141,7 @@ fn run_ui(
             .button(config.keyconfig.stop_btn_name, stop_cb.clone())
             .button(config.keyconfig.remove_btn_name, remove_cb.clone())
             .button(config.keyconfig.logs_btn_name, get_logs_cb.clone())
-      //      .button(config.keyconfig.redeploy_btn_name, get_logs_cb.clone())
+            .button(config.keyconfig.redeploy_btn_name, redeploy_cb.clone())
             .button(config.keyconfig.quit_btn_name, |s| s.quit()),
     );
 
@@ -142,7 +150,7 @@ fn run_ui(
     siv.add_global_callback(config.keyconfig.stop_kbd_key, stop_cb.clone());
     siv.add_global_callback(config.keyconfig.remove_kbd_key, remove_cb.clone());
     siv.add_global_callback(config.keyconfig.logs_kbd_key, get_logs_cb.clone());
-    //siv.add_global_callback(config.keyconfig.redeploy_kbd_key, get_logs_cb.clone());
+    siv.add_global_callback(config.keyconfig.redeploy_kbd_key, redeploy_cb.clone());
     siv.add_global_callback(config.keyconfig.quit_kbd_key, |s| s.quit());
 
     siv.set_fps(30);

@@ -105,6 +105,19 @@ pub async fn remove_container(channel: &mut ClientChannel, id: &str, force: bool
     Ok(())
 }
 
+pub async fn redeploy_containers(redeploy_command: &str) -> Result<()> {
+    let mut lex = shlex::Shlex::new(redeploy_command);
+    let shell_words = lex.by_ref().collect::<Vec<_>>();
+
+    if lex.had_error {
+        return Err(Box::new(config::ConfigError::Message(String::from(
+            "Failed parsing redeploy command",
+        ))));
+    }
+    tokio::process::Command::new(&shell_words[0]).args(&shell_words[1..]).spawn()?.wait().await?;
+    Ok(())
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct KantoLogLine {
     stream: String,

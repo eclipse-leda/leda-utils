@@ -20,4 +20,6 @@ quit_kbd_key = "q"
 
 redeploy_btn_name = "Re[D]eploy"
 redeploy_kbd_key = "d"
-redeploy_command = "systemctl restart kanto-auto-deployer"
+# Includes a shell lexer so anything that would be a valid shell command can be used
+# No pipes/redirects allowed.
+redeploy_command = "systemctl restart kanto-auto-deployer.service"
