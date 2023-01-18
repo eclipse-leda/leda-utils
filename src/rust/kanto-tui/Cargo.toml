@@ -13,7 +13,7 @@
 
 [package]
 name = "kantui"
-version = "0.1.0"
+version = "0.2.0"
 description = "A TUI for Kanto CM that allows easier management of deployed containers. Requires root."
 edition = "2021"
 authors = ["Vasil Ivanov vasil.ivanov3@bosch.io"]

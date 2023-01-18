@@ -22,4 +22,5 @@ redeploy_btn_name = "Re[D]eploy"
 redeploy_kbd_key = "d"
 # Includes a shell lexer so anything that would be a valid shell command can be used
 # No pipes/redirects allowed.
+# N.B.: Command inherits kantui's privileges (root)
 redeploy_command = "systemctl restart kanto-auto-deployer.service"
