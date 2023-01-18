@@ -11,23 +11,10 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
 use async_priority_channel::{bounded, Receiver, Sender};
-use clap::Parser;
 use cursive::views::Dialog;
 use cursive::{traits::*, Cursive};
-use kantui::{containers_table_view as table, kanto_api, try_best};
+use kantui::{containers_table_view as table, kanto_api, kantui_config, try_best};
 use nix::unistd::Uid;
-
-#[derive(Parser, Debug)]
-#[clap(version, about)]
-struct CliArgs {
-    /// Set the path to the kanto-cm UNIX socket
-    #[clap(short, long, default_value_t=String::from("/run/container-management/container-management.sock"))]
-    socket: String,
-
-    /// Time before sending a SIGKILL after a SIGTERM to a container (seconds)
-    #[clap(short, long, default_value_t = 5)]
-    timeout: u8,
-}
 
 #[derive(Debug)]
 enum KantoRequest {
@@ -61,9 +48,9 @@ enum RequestPriority {
 async fn tokio_main(
     response_tx: Sender<KantoResponse, RequestPriority>,
     request_rx: &mut Receiver<KantoRequest, RequestPriority>,
-    socket_path: &str,
+    config: kantui_config::AppConfig,
 ) -> kanto_api::Result<()> {
-    let mut c = kanto_api::get_connection(socket_path).await?;
+    let mut c = kanto_api::get_connection(&config.socket_path).await?;
     loop {
         if let Ok((request, _)) = request_rx.recv().await {
             match request {
@@ -103,12 +90,11 @@ async fn tokio_main(
     }
 }
 
-
 /// Setup the user interface and start the UI thread
 fn run_ui(
     tx_requests: Sender<KantoRequest, RequestPriority>,
     rx_responses: Receiver<KantoResponse, RequestPriority>,
-    timeout: i64,
+    config: kantui_config::AppConfig,
 ) -> kanto_api::Result<()> {
     let mut siv = cursive::default();
 
@@ -124,7 +110,7 @@ fn run_ui(
 
     let stop_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.try_send(KantoRequest::StopContainer(c.id.clone(), timeout), RequestPriority::Normal));
+            try_best(tx_requests.try_send(KantoRequest::StopContainer(c.id.clone(), config.stop_timeout as i64), RequestPriority::Normal));
         }
     });
 
@@ -141,17 +127,13 @@ fn run_ui(
     });
 
     siv.add_fullscreen_layer(
-        Dialog::around(
-            table
-            .with_name(table::TABLE_IDENTIFIER)
-            .full_screen()
-        )
-        .title("Kanto Container Management")
-        .button("[S]tart", start_cb.clone())
-        .button("Sto[P]", stop_cb.clone())
-        .button("[R]emove", remove_cb.clone())
-        .button("[L]ogs", get_logs_cb.clone())
-        .button("[Q]uit", |s| s.quit())
+        Dialog::around(table.with_name(table::TABLE_IDENTIFIER).full_screen())
+            .title("Kanto Container Management")
+            .button("[S]tart", start_cb.clone())
+            .button("Sto[P]", stop_cb.clone())
+            .button("[R]emove", remove_cb.clone())
+            .button("[L]ogs", get_logs_cb.clone())
+            .button("[Q]uit", |s| s.quit()),
     );
 
     // Add keyboard shortcuts
@@ -179,7 +161,7 @@ fn run_ui(
 }
 
 fn main() -> kanto_api::Result<()> {
-    let args = CliArgs::parse();
+    let config = kantui_config::get_app_configuration()?;
 
     if !Uid::effective().is_root() {
         eprintln!("You must run this executable as root");
@@ -189,11 +171,12 @@ fn main() -> kanto_api::Result<()> {
     let (tx_responses, rx_responses) = bounded::<KantoResponse, RequestPriority>(5);
     let (tx_requests, mut rx_requests) = bounded::<KantoRequest, RequestPriority>(5);
 
-    std::thread::spawn(move || {
-        tokio_main(tx_responses, &mut rx_requests, &args.socket).expect("Error in io thread");
-    });
+    // Give each thread its own copy of the config.
+    std::thread::spawn(enclose::enclose!((config) move || {
+        tokio_main(tx_responses, &mut rx_requests, config).expect("Error in io thread");
+    }));
 
-    run_ui(tx_requests, rx_responses, args.timeout as i64)?;
+    run_ui(tx_requests, rx_responses, config)?;
 
     Ok(())
 }

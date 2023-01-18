@@ -10,9 +10,9 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
-
 pub mod containers_table_view;
 pub mod kanto_api;
+pub mod kantui_config;
 
 pub fn try_best<T>(err: T) {
     // Used to consume Err variants where they can be safely ignored.

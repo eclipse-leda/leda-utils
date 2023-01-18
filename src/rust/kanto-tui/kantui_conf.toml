@@ -1,0 +1,8 @@
+# General Configuration Options
+socket_path = "/run/container-management/container-management.sock" # Path to kanto-cm unix socket
+stop_timeout = 5 # timeout before SIGKILL
+
+[keyconfig]
+redeploy_key_name = "Re[D]eploy"
+redeploy_key = "D" # Supports character only keys for now
+redeploy_command = "systemctl restart kanto-auto-deployer"
