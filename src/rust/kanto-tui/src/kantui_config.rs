@@ -25,7 +25,7 @@ e.g. KANTUI_STOP_TIMEOUT=5 overrides the timeout before SIGKILL is sent to be 5 
 )]
 struct CliArgs {
     /// Set a custom path for the kantui configuration file.
-    #[clap(short, long, default_value_t=String::from("/etc/kantui_conf.toml"))]
+    #[clap(short, long, default_value_t=String::from("/etc/kantui/kantui_conf.toml"))]
     config_file_path: String,
 }
 
