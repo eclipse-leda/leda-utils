@@ -1,0 +1,26 @@
+# General Configuration Options
+socket_path = "/run/container-management/container-management.sock" # Path to kanto-cm unix socket
+stop_timeout = 5 # timeout (integer) in seconds before a SIGKILL is sent after a SIGTERM
+
+[keyconfig]
+start_btn_name = "[S]tart"
+start_kbd_key = "s"
+
+stop_btn_name = "Sto[P]"
+stop_kbd_key = "p"
+
+remove_btn_name = "[R]emove"
+remove_kbd_key = "r"
+
+logs_btn_name = "[L]ogs"
+logs_kbd_key = "l"
+
+quit_btn_name = "[Q]uit"
+quit_kbd_key = "q"
+
+redeploy_btn_name = "Re[D]eploy"
+redeploy_kbd_key = "d"
+# Includes a shell lexer so anything that would be a valid shell command can be used
+# No pipes/redirects allowed.
+# N.B.: Command inherits kantui's privileges (root)
+redeploy_command = "systemctl restart kanto-auto-deployer.service"

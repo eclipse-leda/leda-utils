@@ -13,7 +13,7 @@
 use crate::{kanto_api, try_best};
 use cursive::align::HAlign;
 use cursive::view::Scrollable;
-use cursive::views::{Dialog, TextView};
+use cursive::views::{Dialog, OnEventView, TextView};
 use cursive::With;
 use cursive_buffered_backend;
 use cursive_table_view::{TableView, TableViewItem};
@@ -127,11 +127,18 @@ pub fn get_current_container(s: &mut cursive::Cursive) -> Option<ContainersTable
 }
 
 pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
-    let logs_view = Dialog::around(TextView::new(logs))
+    use cursive::event::Key::Esc;
+
+    let mut logs_view = Dialog::around(TextView::new(logs))
         .title("Container Logs")
-        .button("Ok", |s| try_best(s.pop_layer()))
+        .button("Ok (Esc)", |s| try_best(s.pop_layer()))
         .scrollable();
-    siv.add_layer(logs_view);
+
+    logs_view.set_scroll_strategy(cursive::view::ScrollStrategy::StickToBottom);
+    let logs_events_handler = OnEventView::new(logs_view)
+    .on_event(Esc, |s| try_best(s.pop_layer()));
+
+    siv.add_layer(logs_events_handler);
 }
 
 pub fn set_cursive_theme(siv: &mut cursive::CursiveRunnable) {
