@@ -1,4 +1,9 @@
-#!/bin/bash
+#!/bin/sh
+# shellcheck disable=SC3043
+# shellcheck disable=SC1091
+# shellcheck disable=SC2086
+# shellcheck disable=SC2034
+# shellcheck disable=SC2059
 # /********************************************************************************
 # * Copyright (c) 2022 Contributors to the Eclipse Foundation
 # *
@@ -11,6 +16,7 @@
 # *
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
+
 
 ##############################################################################
 ###  DEFAULT VALUES, can be overriden by sdv.conf on multiuple locations:  ###
@@ -77,8 +83,11 @@ check_service()
 	local service="$1"
 	local required="$2" # assumed true if not set
 
-	local STATUS=`$SYSTEMCTL_CMD status $service -n 0 2>&1`
-	local ACTIVE=`echo "$STATUS" | grep 'Active:' | xargs`
+	local STATUS
+	local ACTIVE
+
+	STATUS=$($SYSTEMCTL_CMD status $service -n 0 2>&1)
+	ACTIVE=$(echo "$STATUS" | grep 'Active:' | xargs)
 
 	#echo "* $service status: $ACTIVE"
 	echo "$ACTIVE" | grep -q "active (running)\|active (listening)"
@@ -95,7 +104,9 @@ check_service()
 }
 
 check_rc() {
-	local STATUS=$( $* 2>&1 1>/dev/null )
+	local STATUS
+	# shellcheck disable=SC2048
+	STATUS=$( $* 2>&1 1>/dev/null )
 	rc=$?
 	if [ $rc -eq 0 ]; then
 		printf -- "$TEXT_OK\n"
@@ -124,7 +135,7 @@ port_grep()
 	local port=$2
 	local required="$3"
 
-	LINE="$( echo -n "$NETSTAT" | grep "\:$port" | tr '\n' ' ' )"
+	LINE="$( echo "$NETSTAT" | grep "\:$port" | tr '\n' ' ' )"
 	if [ -n "$LINE" ]; then
 		printf -- "$TEXT_OK\t { $LINE}"
 	else
@@ -145,7 +156,7 @@ prefix()
 	done
 }
 
-check_unix_sock() 
+check_unix_sock()
 {
 	local socket="$1"
 	local required="$2"
@@ -163,7 +174,8 @@ check_unix_sock()
 
 check_network()
 {
-	local PORTS=`sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort`
+	local PORTS
+	PORTS=$(sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort)
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
 	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
 	printf -- "  * %-23s : %s\n" "Mosquitto Server" "$( port_grep "$PORTS" 1883 true  )"
@@ -173,7 +185,8 @@ check_network()
 check_can()
 {
 	local can="$1"
-	local RESULT=$( ip address | grep ": $can:" )
+	local RESULT
+	RESULT=$( ip address | grep ": $can:" )
 	if [ -z "$RESULT" ]; then
 		printf -- "$TEXT_FAIL\t ($can not found)\n"
 	elif echo "$RESULT" | grep -q ",UP"; then
@@ -185,15 +198,20 @@ check_can()
 
 check_cloudconnector()
 {
-	if [ ! -z "$MOSQUITTO_HOST" ]; then 
-		local RESULT=$( mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1)
+	if [ -n "$MOSQUITTO_HOST" ]; then
+		local RESULT
+		RESULT=$( mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1)
 		if [ -z "$RESULT" ]; then
 			printf -- "$TEXT_FAIL\t\n"
 		elif echo "$RESULT" | grep -q "connected\":true"; then
-			local LAST_UPDATE=$(mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1 | jq .timestamp)
-			local NOW=$(date +"%s")
-			local DIFF=($NOW - $LAST_UPDATE)
-			local SINCE=$(date -u -d @"$DIFF" +'%-Mm %-Ss')
+			local LAST_UPDATE
+			local NOW
+			local DIFF
+			local SINCE
+			LAST_UPDATE=$(mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1 | jq .timestamp)
+			NOW=$(date +"%s")
+			DIFF=$($NOW - $LAST_UPDATE)
+			SINCE=$(date -u -d @"$DIFF" +'%-Mm %-Ss')
 			printf -- "$TEXT_OK\t (connected since $SINCE)\n"
 		else
 			printf -- "$TEXT_FAIL\t ($RESULT)\n"
@@ -205,20 +223,21 @@ check_cloudconnector()
 
 check_cloudconnector_deviceid()
 {
-	if [ ! -z "$MOSQUITTO_HOST" ]; then
+	if [ -n "$MOSQUITTO_HOST" ]; then
 		RESULT=$( mosquitto_rr --quiet -h ${MOSQUITTO_HOST} -t 'edge/thing/request' -e 'edge/thing/response' -W 1 -m '')
 		RC=$?
-		if [ $RC == 27 ]; then
+		if [ $RC = 27 ]; then
 			printf -- "$TEXT_FAIL\t (Connector did not respond)\t\n"
 		elif [ -z "$RESULT" ]; then
 			printf -- "$TEXT_FAIL\t ($RC)\t\n"
 		elif echo "$RESULT" | grep -q "deviceId"; then
-			local DEVICEID=$( echo "$RESULT" | jq .deviceId)
+			local DEVICEID
+			DEVICEID=$( echo "$RESULT" | jq .deviceId)
 			printf -- "$TEXT_OK\t ($DEVICEID)\n"
 		else
 			printf -- "$TEXT_FAIL\t ($RC: $RESULT)\n"
 		fi
-	else 
+	else
 		printf -- "$TEXT_FAIL\t (Mosquitto unavailable)\n"
 	fi
 }
@@ -226,7 +245,7 @@ check_cloudconnector_deviceid()
 cm_get_container_id ()
 {
 	local CONT_NAME=$1
-	${KANTO_CMD} get -n $CONT_NAME 2>/dev/null | jq -r " .container_id" 
+	${KANTO_CMD} get -n $CONT_NAME 2>/dev/null | jq -r " .container_id"
 }
 
 cm_check_logging_type ()
@@ -239,10 +258,10 @@ cm_get_container_logs () # get the last n (following tail syntax) lines of a con
 {
 	local CONT_NAME=$1
 	local LOG_MAX_LINES=$2
-	CONT_ID=$(cm_get_container_id $CONT_NAME) 	
+	CONT_ID=$(cm_get_container_id $CONT_NAME)
 	if [ $CONT_ID ]; then
 		LOGGING_TYPE=$(cm_check_logging_type $CONT_ID)
-		if [ $LOGGING_TYPE="json-file" ]; then # according to kanto docs logging type is either "json-file" (to json.log) or "none"
+		if [ $LOGGING_TYPE = "json-file" ]; then # according to kanto docs logging type is either "json-file" (to json.log) or "none"
 			tail -n $LOG_MAX_LINES ${KANTO_CM_HOME_DIR}/containers/${CONT_ID}/${KANTO_CM_LOG_FILE}
 		fi
 	fi
@@ -272,20 +291,49 @@ dump_logs()
 	printf -- "\n"
 }
 
-get_array_element_index() 
-{
-	local element=$1
+list_containers () {
+	local LIST_TITLE="$1"
 	shift
-	local arr=("$@")
+	local LIST_CONTAINERS="$*"
 
-	for i in "${!arr[@]}"; do
+	printf -- "$SEPARATOR\n"
+	printf -- "${COL_WHITE}[${LIST_TITLE}]${COL_NC}\n"
 
-		if [[ "${arr[$i]}" == "${element}" ]]; then
-			echo $i
-			break
-		fi
-	done
+	if [ ${CM_STATUS} -eq 0 ]; then
+
+		KANTO_CM_LIST=$(${KANTO_CMD} list)
+
+		# removes tabs, splits on pipe and takes the container name and status colums ($2/$4)
+		FOUND_CONTAINERS=$(echo "$KANTO_CM_LIST" | awk -F'|' 'NF && NR>3 {gsub(/\s|\t/, ""); print $2"|"$4}')
+
+		for expectedCtr in ${LIST_CONTAINERS}; do
+			unset found
+			for found_name in ${FOUND_CONTAINERS}; do
+				found_status="${found_name#"$expectedCtr|"}"
+				if [ "${found_name}" != "${found_status}" ]; then
+					if [ "$found_status" = "Running" ]; then
+							printf "  * %-40s : $TEXT_OK\n" "${expectedCtr}"
+						else
+							printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "$found_status"
+					fi
+					found=1
+					break
+				fi
+			done
+
+			if [ -z "${found}" ]; then
+				printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "NOT FOUND"
+			fi
+		done
+
+
+
+
+	else
+		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
+	fi
 }
+
 
 ######################################################
 #                        setup                       #
@@ -332,10 +380,10 @@ init_colors
 
 if [ -f "$HOME/.config/sdv.conf" ]; then
 	. "$HOME/.config/sdv.conf"
-	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && cat $HOME/.config/sdv.conf | grep -v  '^#' | sort -u
+	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && grep -v  '^#' $HOME/.config/sdv.conf | sort -u
 elif [ -f "/etc/sdv/sdv.conf" ]; then
 	. "/etc/sdv/sdv.conf"
-	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: /etc/sdv/sdv.conf" && cat /etc/sdv/sdv.conf | grep -v  '^#' | sort -u
+	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: /etc/sdv/sdv.conf" && grep -v  '^#' /etc/sdv/sdv.conf | sort -u
 else
 	[ "$VERBOSE" = "1" ] && echo "# Config file not found!"
 fi
@@ -347,7 +395,7 @@ fi
 [ -n "$DUMP_LOGS" ] && dump_logs
 printf -- "${COL_WHITE}[SDV Info]${COL_NC}\n"
 # get info values
-source /etc/os-release
+. /etc/os-release
 IMAGE_VERSION=$( cat /etc/issue 2>/dev/null )
 IMAGE_TIMESTAMP=$( cat /etc/version 2>/dev/null )
 printf -- "  * %-23s : ${COL_YELLOW}%s${COL_NC}\n" "OS Release:" "${PRETTY_NAME}"
@@ -357,7 +405,7 @@ printf -- "$SEPARATOR\n"
 
 # make sure CAN is up
 printf -- "${COL_WHITE}[CAN Status]${COL_NC}\n"
-printf -- "  * %-23s : `check_can $SDV_CAN`\n" "$SDV_CAN"
+printf -- "  * %-23s : $(check_can $SDV_CAN)\n" "$SDV_CAN"
 
 printf -- "$SEPARATOR\n"
 printf -- "${COL_WHITE}[SDV Ports]${COL_NC}\n"
@@ -377,71 +425,15 @@ if [ -n "$SDV_SERVICES_OPT" ]; then
 	done
 fi
 
-CM_STATUS=$(systemctl is-active container-management)
+systemctl --quiet is-active container-management
+CM_STATUS=$?
+
 if [ -n "$KANTO_CM_CONTAINERS" ]; then
-	printf -- "$SEPARATOR\n"
-
-	printf -- "${COL_WHITE}[Kanto CM Containers]${COL_NC}\n"
-	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
-		# "Mandatory containers"
-		KANTO_CM_LIST=$(${KANTO_CMD} list)
-		# removes tabs, splits on pipe and takes the container name column ($2)
-		FOUND_CONTAINERS=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $2}')) # array with all kanto container names
-		# removes tabs, splits on pipe and takes the container status colum ($4)
-		FOUND_CONTAINERS_STATES=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $4}')) # array with all kanto container states
-		KANTO_CM_CONTAINERS_ARR=( $KANTO_CM_CONTAINERS )
-
-		for expectedCtr in ${KANTO_CM_CONTAINERS_ARR[@]}; do
-			CTR_IDX=$(get_array_element_index ${expectedCtr} ${FOUND_CONTAINERS[@]})
-			if [ ! -z $CTR_IDX ]; then
-				status=${FOUND_CONTAINERS_STATES[$CTR_IDX]}
-				if [ "$status" = "Running" ]; then
-					printf "  * %-40s : $TEXT_OK\n" "${expectedCtr}"
-				else
-					printf "  * %-40s : $TEXT_FAIL (%s)\n" "${expectedCtr}" "$status"
-				fi
-			else
-				printf "  * %-40s : $TEXT_FAIL (%s)\n" "${expectedCtr}" "NOT FOUND"
-			fi
-		done
-
-	else
-		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
-	fi
+	list_containers "Kanto CM Containers" $KANTO_CM_CONTAINERS
 fi
 
 if [ -n "$KANTO_CM_CONTAINERS_OPT" ]; then
-	printf -- "$SEPARATOR\n"
-
-	printf -- "${COL_WHITE}[Kanto CM Containers (OPTIONAL)]${COL_NC}\n"
-	if [[ ${CM_STATUS} != *"inactive"*  ]]; then
-		
-		# "Optional containers"
-		KANTO_CM_LIST=$(${KANTO_CMD} list)
-		# removes tabs, splits on pipe and takes the container name column ($2)
-		FOUND_CONTAINERS=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $2}')) # array with all kanto container names
-		# removes tabs, splits on pipe and takes the container status colum ($4)
-		FOUND_CONTAINERS_STATES=($(echo "$KANTO_CM_LIST" | awk -F'|' '{gsub(/\t/, ""); print $4}')) # array with all kanto container states
-		KANTO_CM_CONTAINERS_ARR=( $KANTO_CM_CONTAINERS_OPT )
-
-		for expectedCtr in ${KANTO_CM_CONTAINERS_ARR[@]}; do
-			CTR_IDX=$(get_array_element_index ${expectedCtr} ${FOUND_CONTAINERS[@]})
-			if [ ! -z $CTR_IDX ]; then
-				status=${FOUND_CONTAINERS_STATES[$CTR_IDX]}
-				if [ "$status" = "Running" ]; then
-					printf "  * %-40s : $TEXT_OK\n" "${expectedCtr}"
-				else
-					printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "$status"
-				fi
-			else
-				printf "  * %-40s : $TEXT_WARN (%s)\n" "${expectedCtr}" "NOT FOUND"
-			fi
-		done
-
-	else
-		printf "  * %-40s : $TEXT_FAIL (%s)\n" "Kanto Container Management" "Unavailable"
-	fi
-
+	list_containers "Kanto CM Containers (OPTIONAL)" $KANTO_CM_CONTAINERS_OPT
 fi
 
 

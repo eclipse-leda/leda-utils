@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #********************************************************************************
 # Copyright (c) 2022 Contributors to the Eclipse Foundation
 #
@@ -11,9 +11,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #*******************************************************************************/
-# shellcheck disable=SC2086
-# shellcheck disable=SC2181
-# shellcheck disable=SC2230
+# shellcheck disable=SC3043
+
 
 HOST_VXCAN="vxcan0"
 DOCKER_VXCAN="vxcan1"
@@ -94,8 +93,8 @@ fi
 
 # check for vxcan module
 if ! lsmod | grep -q vxcan; then
-	modprobe vxcan
-	if [ $? -ne 0 ]; then
+	if ! modprobe vxcan;
+	then
 		echo "Can't find vxcan module!"
 		echo "Try compiling from ./vxcan/install.sh"
 		exit 1
@@ -103,8 +102,8 @@ if ! lsmod | grep -q vxcan; then
 fi
 
 if ! lsmod | grep -q can_gw; then
-	modprobe can-gw
-	if [ $? -ne 0 ]; then
+	if ! modprobe can-gw;
+	then
 		echo "Can't find can-gw module!"
 		exit 1
 	fi
