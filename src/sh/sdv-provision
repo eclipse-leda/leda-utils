@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # /********************************************************************************
 # * Copyright (c) 2022 Contributors to the Eclipse Foundation
 # *
@@ -11,7 +11,9 @@
 # *
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
-#
+# shellcheck disable=SC3043
+
+
 # Generating dummy device certificates (self-signed) according to tutorial
 # https://learn.microsoft.com/en-us/azure/iot-hub/tutorial-x509-self-sign
 #
@@ -49,7 +51,7 @@ loadDeviceId() {
     NET_DEV=$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")
     echo "- Based on network device: ${NET_DEV}"
 
-    if [ -z ${NET_DEV} ]; then
+    if [ -z "${NET_DEV}" ]; then
         echo "Missing network device or default route on network device, aborting"
         exit 1
     fi
@@ -58,14 +60,14 @@ loadDeviceId() {
     if [ ! -f "${DEVICE_ID_FILE}" ];
     then
         echo "- File does not exist, creating: ${DEVICE_ID_FILE}"
-        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/${NET_DEV}/address)
-        echo ${DEVICE_ID} > /etc/deviceid
+        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/"${NET_DEV}"/address)
+        echo "${DEVICE_ID}" > /etc/deviceid
     fi
 
     # Fallback, in case we do not have write access to /etc
     if [ ! -f "${DEVICE_ID_FILE}" ];
     then
-        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/${NET_DEV}/address)
+        DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/"${NET_DEV}"/address)
     else
         DEVICE_ID=$(cat /etc/deviceid)
     fi
@@ -85,22 +87,22 @@ generateDeviceCertificates() {
     DEVICE_KEY_2=$(mktemp -t leda-device2-key-XXXXXX)
 
     echo "- private keys"
-    openssl genpkey -out ${DEVICE_KEY_1} -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
-    openssl genpkey -out ${DEVICE_KEY_2} -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
+    openssl genpkey -out "${DEVICE_KEY_1}" -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
+    openssl genpkey -out "${DEVICE_KEY_2}" -algorithm RSA -pkeyopt rsa_keygen_bits:2048 2>/dev/null
     echo "- certificate signing requests"
-    openssl req -new -key ${DEVICE_KEY_1} -out ${DEVICE_CSR_1} -subj "/CN=${DEVICE_ID}" 2>/dev/null
-    openssl req -new -key ${DEVICE_KEY_2} -out ${DEVICE_CSR_2} -subj "/CN=${DEVICE_ID}" 2>/dev/null
-    #openssl req -text -in ${DEVICE_CSR_1} -noout
-    #openssl req -text -in ${DEVICE_CSR_2} -noout
+    openssl req -new -key "${DEVICE_KEY_1}" -out "${DEVICE_CSR_1}" -subj "/CN=${DEVICE_ID}" 2>/dev/null
+    openssl req -new -key "${DEVICE_KEY_2}" -out "${DEVICE_CSR_2}" -subj "/CN=${DEVICE_ID}" 2>/dev/null
+    #openssl req -text -in "${DEVICE_CSR_1}" -noout
+    #openssl req -text -in "${DEVICE_CSR_2}" -noout
     echo "- self-signing certificates"
-    openssl x509 -req -days 365 -in ${DEVICE_CSR_1} -signkey ${DEVICE_KEY_1} -out ${DEVICE_CERT_1} 2>/dev/null
-    openssl x509 -req -days 365 -in ${DEVICE_CSR_2} -signkey ${DEVICE_KEY_2} -out ${DEVICE_CERT_2} 2>/dev/null
+    openssl x509 -req -days 365 -in "${DEVICE_CSR_1}" -signkey "${DEVICE_KEY_1}" -out "${DEVICE_CERT_1}" 2>/dev/null
+    openssl x509 -req -days 365 -in "${DEVICE_CSR_2}" -signkey "${DEVICE_KEY_2}" -out "${DEVICE_CERT_2}" 2>/dev/null
 
     echo "Installing device certificates ..."
-    cp -v ${DEVICE_CERT_1} ${CERT_FILE}
-    cp -v ${DEVICE_KEY_1} ${KEY_FILE}
-    cp -v ${DEVICE_CERT_2} ${CERT_FILE2}
-    cp -v ${DEVICE_KEY_2} ${KEY_FILE2}
+    cp -v "${DEVICE_CERT_1}" "${CERT_FILE}"
+    cp -v "${DEVICE_KEY_1}" "${KEY_FILE}"
+    cp -v "${DEVICE_CERT_2}" "${CERT_FILE2}"
+    cp -v "${DEVICE_KEY_2}" "${KEY_FILE2}"
 }
 
 showDeviceCerts() {
@@ -134,9 +136,10 @@ recreateCloudConnectorContainer() {
 
 configureIdScope() {
     while true; do
-        read -p "Please enter your Id Scope of the Azure IoT Device Provisioning Service:" idscope
-        if [ -n ${idscope} ]; then
-            echo ${idscope} > ${DATA_AZURE_ID_SCOPE_FILE}
+        printf "Please enter your Id Scope of the Azure IoT Device Provisioning Service:"
+        read -r idscope
+        if [ -n "${idscope}" ]; then
+            echo "${idscope}" > ${DATA_AZURE_ID_SCOPE_FILE}
 
             # Modify the cloudconnector.json deployment descriptor
             local sourcejson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE}"
@@ -144,7 +147,8 @@ configureIdScope() {
                 sourcejson=${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}
             fi
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
-            local tmp=$(mktemp -t leda-idscope-XXXXXX)
+            local tmp
+            tmp=$(mktemp -t leda-idscope-XXXXXX)
             
             # Add the environment variable ("ID_SCOPE=xxx") to the JSON Array in the cloudconnector.json
             # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
@@ -162,9 +166,10 @@ configureIdScope() {
 
 configureConnectionString() {
     while true; do
-        read -p "Please enter the device Connection String of the Azure IoT Hub:" connectionstring
-        if [ -n ${connectionstring} ]; then
-            echo ${connectionstring} > ${DATA_AZURE_CONNECTION_STRING_FILE}
+        printf "Please enter the device Connection String of the Azure IoT Hub:"
+        read -r connectionstring
+        if [ -n "${connectionstring}" ]; then
+            echo "${connectionstring}" > ${DATA_AZURE_CONNECTION_STRING_FILE}
 
             # Modify the cloudconnector.json deployment descriptor
             local sourcejson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE}"
@@ -172,7 +177,8 @@ configureConnectionString() {
                 sourcejson=${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}
             fi
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
-            local tmp=$(mktemp -t leda-idscope-XXXXXX)
+            local tmp
+            tmp=$(mktemp -t leda-idscope-XXXXXX)
             
             # Add the environment variable ("CONNECTION_STRING=xxx") to the JSON Array in the cloudconnector.json
             # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
@@ -219,7 +225,8 @@ ensureIdScopeOrConnectionString() {
         echo "Do you want to use the global Azure IoT Device Provisioning Service (DPS) by using an Id Scope, or do you want to use a direct connection to a specific Azure IoT Hub using a Connection String?"
         echo "d) Azure IoT Device Provisioning Service (DPS) with Id Scope"
         echo "h) Azure IoT Hub with Connection String"
-        read -p "Choose:" dh
+        printf "Choose:"
+        read -r dh
         case $dh in
             [Dd]* ) configureIdScope; break;;
             [Hh]* ) configureConnectionString; break;;
