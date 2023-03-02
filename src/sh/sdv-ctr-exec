@@ -1,0 +1,82 @@
+#!/bin/sh
+# shellcheck disable=SC3043
+# shellcheck disable=SC1091
+# shellcheck disable=SC2086
+# shellcheck disable=SC2034
+# shellcheck disable=SC2059
+
+# /********************************************************************************
+# * Copyright (c) 2022 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+set -e
+
+OPTIND=1 # Reset in case getopts has been used previously in the shell.
+
+# Utility functions to convert to and from kanto-cm name/id
+# They also serve the purpose to fail and exit if the container
+# cannot be found in kanto-cm
+
+get_container_id() {
+    local ctr_info
+    ctr_info=$(kanto-cm get -n $1) || exit $?
+    echo $ctr_info | jq -r " .container_id"
+}
+
+get_container_name() {
+    local ctr_info
+    ctr_info=$(kanto-cm get $1) || exit $?
+    echo $ctr_info | jq -r " .container_name"
+}
+
+show_help() {
+    echo "${0} -h to print this message"
+    echo ""
+    echo "Usage:"
+    echo "${0} <container-id> <command>"
+    echo "or"
+    echo "${0} -n <container-name> <command>"
+}
+
+if [ "$#" -eq 0 ]; then
+    show_help
+    exit 0
+fi
+
+while getopts "h?n:" opt; do
+    case "$opt" in
+        h|\?)
+            show_help
+            exit 0
+        ;;
+        n)  name=${OPTARG}
+        ;;
+    esac
+done
+
+shift $((OPTIND-1))
+[ "${1:-}" = "--" ] && shift
+
+if [ -n "${name+x}" ]; then
+    # the argument -n was passed, use ctr name
+    id=$(get_container_id ${name})
+else
+    # arg -n not passed, use id
+    id=$1
+    name=$(get_container_name ${id})
+    shift
+fi
+
+# From now on we have the container id (which is the container name in ctr's term) and we are sure it exists
+task_id="ext_ctr_task"
+echo "Running $* in container ${name} with id ${id} as task ${task_id}"
+echo "Command: ctr --namespace kanto-cm task exec -t --exec-id ${task_id} ${id} $*"
+ctr --namespace kanto-cm task exec -t --exec-id ${task_id} ${id} "$@"
