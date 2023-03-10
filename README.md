@@ -10,15 +10,17 @@ List of utilities:
 - *kantui*: A text user interface for kanto-cm to manage containers (start, stop, logs)
 - *sdv-motd*: Message-of-the-Day shown after login prompt
 - *can-forward*: Forwarding a CAN-bus network interface into a containerized Vehicle Application
+- *sdv-ctr-exec:* Execute arbitrary commands in existing containers
 
-# Usage
+## Usage
 
-## SDV Device Info
+### SDV Device Info
 
 Synposis: `./sdv-device-info [options] [command]`
 
 Full help:
-```
+
+```shell
 Usage: ./sdv-device-info [options] [command]
 Update SDV device configuration information in configuration files.
 Example: ./sdv-device-info -v env"
@@ -50,25 +52,27 @@ To use device information on other scripts, it may be useful to source the devic
 Synposis: `source ./sdv-device-info env`
 
 Example:
-```
+
+```shell
 $ source ./sdv-device-info env
 $ echo $DEVICE_ID
 exampledevice1
 ```
 
-## SDV Health
+### SDV Health
 
 The `./sdv-health` utility display a status overview of some important dependencies and device configurations for the SDV stack.
 The sdv health utility can be configured using the `sdv.conf` configuration file.
 
 Example output:
 
-![](assets/sdv-health.png)
+![Eclipse Leda SDV Health](assets/sdv-health.png)
 
-## can-forward
+### can-forward
 
-Synposis:
-```
+Usage:
+
+```shell
 Usage:  ./can-forward {-h} {-p PID} {-c container} <hw_can>
 
   hw_can          Host CAN hw interface to forward. Default: can0
@@ -78,20 +82,52 @@ Usage:  ./can-forward {-h} {-p PID} {-c container} <hw_can>
 ```
 
 Example:
-```
-$ ps -C seat_service -o pid=
-$ ./can-forward -p 1234 can0
+
+```shell
+ps -C seat_service -o pid=
+./can-forward -p 1234 can0
 ```
 
 > **Note:** can-forward does currently not support looking up PID of Kubernetes pods.
 
-## Kanto Auto Deployer
+### Kanto Auto Deployer
 
-Automatically deploys containers to the Kanto Container Management based on deployment descriptors from a given path. All deployment descriptors in the manifests folder will be deployed (created and started) on startup of the service.
+Automatically deploys containers to the Kanto Container Management based on deployment descriptors from a given path.
+All deployment descriptors in the manifests folder will be deployed (created and started) on startup of the service.
 
-Usage as a systemd service (`/lib/systemd/system/kanto-auto-deployer.service`):
+### Usage as a cli tool
 
+Usage:
+
+```shell
+root@qemux86-64:~# kanto-auto-deployer --help
+USAGE:
+  kanto-auto-deployer [PATH TO MANIFESTS FOLDER]
 ```
+
+Example:
+
+```shell
+# Use container manifests from current working directory
+/var/containers/manifests_dev/ $ kanto-auto-deployer
+Reading manifests from [.]
+Already exists [cloudconnector]
+Already exists [otelcollector]
+Already exists [seatservice-example]
+
+# Use container manifests from specified directory
+~ $ kanto-auto-deployer /var/containers/manifests_dev/
+Reading manifests from [/data/var/containers/manifests_dev/]
+Already exists [cloudconnector]
+Already exists [otelcollector]
+Already exists [seatservice-example]
+```
+
+### Usage as a systemd service
+
+Systemd service unit is located in `/lib/systemd/system/kanto-auto-deployer.service`:
+
+```shell
 [Unit]
 Description=Kanto Auto Deployer
 After=network-online.target container-management.service
@@ -108,7 +144,8 @@ ExecStart=/usr/bin/kanto-auto-deployer /var/containers/manifests
 ```
 
 Example output:
-```
+
+```shell
 root@qemux86-64:/lib/systemd/system# systemctl status kanto-auto-deployer.service 
 * kanto-auto-deployer.service - Kanto Auto Deployer
      Loaded: loaded (/lib/systemd/system/kanto-auto-deployer.service; enabled; vendor preset: enabled)
@@ -124,13 +161,16 @@ Dec 09 09:41:42 qemux86-64 kanto-auto-deployer[472]: Started [databroker]
 Dec 09 09:41:42 qemux86-64 systemd[1]: kanto-auto-deployer.service: Deactivated successfully.
 ```
 
-## KantUI
+### KantUI
 
 Usage:
 
-    kantui
+```shell
+kantui
+```
 
 Keyboard commands:
+
 - Arrow keys `Up` and `Down` to select a container
 - Arrow keys `Left` and `Right` to select a column
 - `Enter` to change the sort ordering of the currently selected column
@@ -142,8 +182,9 @@ Keyboard commands:
 
 Note: The mouse can be used to select ui items.
 
-Synopsis:
-```
+Usage:
+
+```shell
 kantui 0.1.0
 A TUI for Kanto CM that allows easier management of deployed containers. Requires root.
 
@@ -159,34 +200,72 @@ OPTIONS:
     -V, --version              Print version information
 ```
 
-## SDV Message of the Day
+### SDV Message of the Day
 
 The `sdv-motd` script provides an alternative motd profile, which displays some additional information after login.
 
 Example output:
 
-![](assets/sdv-motd.png)
+![Eclipse Leda Message Of The Day](assets/sdv-motd.png)
 
-# Requirements and installation
+### Execute Arbitary Commands in Containers
+
+The `sdv-ctr-exec` wrapper allows to execute arbitrary user commands in existing containers.
+Kanto Container Management cli tool (`kanto-cm`) only allows to manage the lifecycle of a container,
+but does not allow to specify or override the entrypoint or command definitions of an existing container.
+The `ctr` command line tool of containerd allows the execution of additional *tasks* in a running container.
+
+As a convenient tool, `sdv-ctr-exec` allows the simple execution of arbitrary commands inside of containers.
+This is especially useful for non-service-containers, or containers which have additional binaries (e.g. cli tools) embedded.
+
+Usage:
+
+```shell
+root@qemux86-64:~# sdv-ctr-exec 
+/usr/bin/sdv-ctr-exec -h to print this message
+
+Usage:
+/usr/bin/sdv-ctr-exec <container-id> <command>
+or
+/usr/bin/sdv-ctr-exec -n <container-name> <command>
+```
+
+Example:
+
+```shell
+# Note: Both options are equivalent
+# Executing a containerized cli tool using ctr
+ctr --namespace kanto-cm image pull ghcr.io/eclipse/kuksa.val/kuksa-client:master
+ctr --namespace kanto-cm container create --net-host --tty ghcr.io/eclipse/kuksa.val/kuksa-client:master kuksa-client
+ctr --namespace kanto-cm tasks start --detach kuksa-client
+ctr --namespace kanto-cm tasks exec --tty --exec-id sometask kuksa-client /kuksa-client/bin/kuksa-client --port 30555 --protocol grpc --insecure
+
+# Executing a containerized cli tool using sdv-ctr-exec
+kanto-cm create --i --t --network=host --name=kuksa-client ghcr.io/eclipse/kuksa.val/kuksa-client:master
+kanto-cm start --name=kuksa-client
+sdv-ctr-exec -n kuksa-client /kuksa-client/bin/kuksa-client --port 30555 --protocol grpc --insecure
+```
+
+## Requirements and installation
 
 The utility scripts currently require `bash`.
 The utilities are pre-installed on Eclipse Leda Quickstart distros in the *SDV Full Image* partition.
 
-## Manual installation
+### Manual installation
 
 - Install bash
 - Copy the scripts to the device, e.g. to `/usr/bin/` or to your user's home directory
 - Ensure executable bit: `chmod a+x sdv-*`
 
-# Contributing
+## Contributing
 
-## Visual Studio DevContainer Setup
+See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+### Visual Studio DevContainer Setup
 
 - Clone the repository into Visual Studio (`F1` -> `Remote-Containers: Clone repository into volume`)
 - Provide the git repository url.
 
-# License and Copyright
+## License and Copyright
 
 Please see [LICENSE](LICENSE)
-
-
