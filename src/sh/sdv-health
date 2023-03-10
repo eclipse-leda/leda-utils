@@ -175,7 +175,7 @@ check_unix_sock()
 check_network()
 {
 	local PORTS
-	PORTS=$(sudo netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort)
+	PORTS=$(netstat -tnl 2>/dev/null | grep tcp | awk '{ print $4 }' | sort)
 	printf -- "  * %-23s : %s\n" "OpenSSH" "$( port_grep "$PORTS" 22 true  )"
 	printf -- "  * %-23s : %s\n" "Kanto CM" "$(check_unix_sock "$KANTO_SOCK" true  )"
 	printf -- "  * %-23s : %s\n" "Mosquitto Server" "$( port_grep "$PORTS" 1883 true  )"
