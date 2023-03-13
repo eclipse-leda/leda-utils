@@ -1,0 +1,38 @@
+{
+    "domain_name": "",
+    "host_name": "",
+    "mount_points": [],
+    "config": {
+        "env": [],
+        "cmd": []
+    },
+    "host_config": {
+        "devices": [],
+        "network_mode": "bridge",
+        "privileged": false,
+        "extra_hosts": [],
+        "port_mappings": [],
+        "resources": {
+            "memory": "",
+            "memory_reservation": "",
+            "memory_swap": ""
+        },
+        "restart_policy": {
+            "type": "unless-stopped",
+            "maximum_retry_count": 0,
+            "retry_timeout": 0
+        },
+        "log_config": {
+            "driver_config": {
+                "type": "json-file",
+                "max_files": 2,
+                "max_size": "1M",
+                "root_dir": ""
+            },
+            "mode_config": {
+                "mode": "blocking",
+                "max_buffer_size": "1M"
+            }
+        }
+    }
+}

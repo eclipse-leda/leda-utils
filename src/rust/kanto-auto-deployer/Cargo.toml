@@ -21,7 +21,10 @@ hyper = { version = "0.14", features = ["full"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
 glob = "0.3.0"
-
+anyhow = "1.0.69"
+json-patch = "0.3.0"
+log = "0.4.0"
+env_logger = "0.9.3"
 
 [build-dependencies]
 tonic-build =  "0.8.2"
@@ -29,3 +32,8 @@ tonic-build =  "0.8.2"
 [[bin]]
 name = "kanto-auto-deployer"
 path = "src/main.rs"
+
+[profile.release]
+lto = true
+opt-level = "z"  # Optimize for size.
+strip = true  # Automatically strip symbols from the binary.
