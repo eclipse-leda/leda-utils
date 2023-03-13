@@ -26,7 +26,6 @@ use glob::glob;
 use std::env;
 use std::fs;
 
-
 fn print_usage() {
     println!("USAGE:");
     println!("  kanto-auto-deployer [PATH TO MANIFESTS FOLDER]")
@@ -37,11 +36,11 @@ async fn start(
     name: &String,
     _id: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting [{}]", name);
+    log::info!("Starting [{}]", name);
     let id = String::from(_id.clone());
     let request = tonic::Request::new(kanto::StartContainerRequest { id });
     let _response = _client.start(request).await?;
-    println!("Started [{}]", name);
+    log::info!("Started [{}]", name);
     Ok(())
 }
 
@@ -58,16 +57,16 @@ async fn create(
         let containers = _client.list(_r).await?.into_inner();
         for cont in &containers.containers {
             if cont.name == name {
-                println!("Already exists [{}]", name);
+                log::info!("Already exists [{}]", name);
                 return Ok(());
             }
         }
-        println!("Creating [{}]", name);
+        log::info!("Creating [{}]", name);
         let request = tonic::Request::new(kanto::CreateContainerRequest {
             container: Some(container),
         });
         let _response = _client.create(request).await?;
-        println!("Created [{}]", name);
+        log::info!("Created [{}]", name);
         let _none = String::new();
         let id = match _response.into_inner().container {
             Some(c) => c.id,
@@ -75,15 +74,16 @@ async fn create(
         };
         start(_client, &name, &id).await?;
     } else {
-        eprintln!("Wrong json in [{}]", file_path);
+        log::error!("Wrong json in [{}]", file_path);
     }
     Ok(())
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init();
-
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
 
     let args: Vec<String> = env::args().collect();
     let mut file_path = String::new();
@@ -110,20 +110,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the client
     let mut client = kanto::containers_client::ContainersClient::new(channel);
     let mut b_found = false;
-    println!("Reading manifests from [{}]", path);
+    log::info!("Reading manifests from [{}]", path);
     let mut full_name = String::new();
     for entry in glob(&file_path).expect("Failed to parse glob pattern") {
-        let name = entry.expect("Path to entry is unreadable").display().to_string();
+        let name = entry
+            .expect("Path to entry is unreadable")
+            .display()
+            .to_string();
         full_name.push_str(&name);
         b_found = true;
         match create(&mut client, &full_name).await {
-            Ok(_) => {},
-            Err(e) => println!("[CM error] Failed to create container: {}", e)
+            Ok(_) => {}
+            Err(e) => log::error!("[CM error] Failed to create container: {}", e),
         };
         full_name.clear();
     }
     if !b_found {
-        println!("No manifests are found in [{}]", path);
+        log::info!("No manifests are found in [{}]", path);
         print_usage();
     }
     Ok(())

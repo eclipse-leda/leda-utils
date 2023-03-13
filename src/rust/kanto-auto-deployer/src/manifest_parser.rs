@@ -23,7 +23,7 @@ fn update_template(
 
 fn try_or_print<T: std::fmt::Debug>(res: Result<T, Box<dyn std::error::Error>>) {
     match res {
-        Err(e) => eprintln!("[PARSER] {:#?}. Using default value...", e),
+        Err(e) => log::debug!("[PARSER] {:#?}. Using default value...", e),
         _ => (),
     };
 }
@@ -95,16 +95,33 @@ fn map_to_internal_state_manifest(
 
 pub fn try_parse_manifests(container_str: &str) -> Result<Container, Box<dyn std::error::Error>> {
     let parsed_json: Container = match serde_json::from_str(&container_str) {
-        Ok(ctr) => ctr,
+        Ok(ctr) => {
+            log::debug!("Manifest is in auto-deployer format already. Deploying directly");
+            ctr
+        }
         Err(_) => {
-            eprintln!("[PARSER] Failed to load manifest directly.");
-            eprintln!("[PARSER] Assuming manifest is in container-config format, trying to remap."); 
+            log::warn!("Failed to load manifest directly. Will attempt auto-conversion from init-dir format.");
             let manifest = serde_json::from_str(&container_str)?;
             let manifest = expand_container_manifest(&manifest)?;
             let internal_state = map_to_internal_state_manifest(manifest)?;
-            eprintln!("[Parser] Obtained: \n {}", serde_json::to_string_pretty(&internal_state)?);
+
+            // pretty-printing is expensive
+            if log::log_enabled!(log::Level::Debug) {
+                log::debug!(
+                    "Obtained: \n {}",
+                    serde_json::to_string_pretty(&internal_state)?
+                );
+            }
+
             serde_json::from_value(internal_state)?
         }
     };
+
+    if log::log_enabled!(log::Level::Debug) {
+        log::debug!(
+            "Deploying: \n {}",
+            serde_json::to_string_pretty(&parsed_json)?
+        );
+    }
     Ok(parsed_json)
 }
