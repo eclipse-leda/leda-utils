@@ -37,7 +37,7 @@ fn expand_container_manifest(manifest: &Value) -> Result<Value, Box<dyn std::err
     Ok(ctr_config_template)
 }
 
-/// Tries top map top-level json properties from kanto container-config style manifests
+/// Tries to map top-level json properties from kanto container-config style manifests
 /// (ref: https://websites.eclipseprojects.io/kanto/docs/references/containers/container-config/#template)
 /// to kanto internal container state representation by directly cloning their values
 /// (check src/kanto_internal_ctr_repr.json.template.in)
@@ -45,7 +45,7 @@ fn map_to_internal_state_manifest(
     container_manifest: Value,
 ) -> Result<Value, Box<dyn std::error::Error>> {
     let int_state_repr = include_str!("kanto_internal_ctr_repr.json.template.in");
-    let mut int_state_repr: Map<String, Value> = serde_json::from_str(int_state_repr)?;
+    let mut int_state_repr = serde_json::from_str(int_state_repr)?;
     let ctr_manifest: Map<String, Value> = serde_json::from_value(container_manifest)?;
 
     // These fields are considered mandatory, if they do not exist,
