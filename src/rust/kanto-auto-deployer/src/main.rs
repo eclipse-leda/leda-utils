@@ -126,7 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         full_name.clear();
     }
     if !b_found {
-        log::info!("No manifests are found in [{}]", path);
+        log::error!("No manifests are found in [{}]", path);
         print_usage();
     }
     Ok(())
