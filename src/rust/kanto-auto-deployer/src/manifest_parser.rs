@@ -1,8 +1,35 @@
+// ********************************************************************************
+// * Copyright (c) 2023 Contributors to the Eclipse Foundation
+// *
+// * See the NOTICE file(s) distributed with this work for additional
+// * information regarding copyright ownership.
+// *
+// * This program and the accompanying materials are made available under the
+// * terms of the Apache License 2.0 which is available at
+// * https://www.apache.org/licenses/LICENSE-2.0
+// *
+// * SPDX-License-Identifier: Apache-2.0
+// ********************************************************************************
+
+//! A module for parsing-out container manifests.
+//! 
+//! The only public API is the `try_parse_manifest` function that takes a json string
+//! read-out from disk and tries to parse it to the "internal container state representation"
+//! for Kanto-CM.
+//! 
+//! If the json is already in the internal state representation it would be parsed out directly.
+//! Otherwise an "initdir" style manifest will be assumed and an automatic conversion will be attempted
+//! by first expanding-out the manifest (since init-dir style manifests allow missing keys) and re-mapping it
+//! to the internal state representation.
 use anyhow::anyhow;
 use serde_json::{Map, Value};
 use crate::containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers::Container;
 use json_patch::merge;
 
+
+
+/// Takes a key from a "template" and a "data" dictionary and replaces
+/// the template's value for that key from the the data dict.
 fn update_template(
     template: &mut Map<String, Value>,
     data: &Map<String, Value>,
@@ -21,24 +48,16 @@ fn update_template(
     Ok(())
 }
 
+/// Consume a Result<T, E> variant and print-out a debug log if it's the Err variant
 fn try_or_print<T: std::fmt::Debug>(res: Result<T, Box<dyn std::error::Error>>) {
     match res {
-        Err(e) => log::debug!("[PARSER] {:#?}. Using default value...", e),
+        Err(e) => log::debug!("{:#?}. Using default value...", e),
         _ => (),
     };
 }
 
-/// Use the JSON merge patch (RFC IETF 7386) to merge the manifest read from disk with a
-/// template containing all available options.
-fn expand_container_manifest(manifest: &Value) -> Result<Value, Box<dyn std::error::Error>> {
-    let ctr_config_template = include_str!("kanto_internal_ctr_repr.json.template.in");
-    let mut ctr_config_template = serde_json::from_str(ctr_config_template)?;
-    merge(&mut ctr_config_template, &manifest);
-    Ok(ctr_config_template)
-}
-
 /// Tries to map top-level json properties from kanto container-config style manifests
-/// (ref: https://websites.eclipseprojects.io/kanto/docs/references/containers/container-config/#template)
+/// (ref: <https://websites.eclipseprojects.io/kanto/docs/references/containers/container-config/#template>)
 /// to kanto internal container state representation by directly cloning their values
 /// (check src/kanto_internal_ctr_repr.json.template.in)
 fn map_to_internal_state_manifest(
@@ -93,7 +112,16 @@ fn map_to_internal_state_manifest(
     Ok(serde_json::to_value(int_state_repr)?)
 }
 
-pub fn try_parse_manifests(container_str: &str) -> Result<Container, Box<dyn std::error::Error>> {
+/// Use the JSON merge patch (RFC IETF 7386) to merge the manifest read from disk with a
+/// template containing all available options.
+fn expand_container_manifest(manifest: &Value) -> Result<Value, Box<dyn std::error::Error>> {
+    let ctr_config_template = include_str!("kanto_internal_ctr_repr.json.template.in");
+    let mut ctr_config_template = serde_json::from_str(ctr_config_template)?;
+    merge(&mut ctr_config_template, &manifest);
+    Ok(ctr_config_template)
+}
+
+pub fn try_parse_manifest(container_str: &str) -> Result<Container, Box<dyn std::error::Error>> {
     let parsed_json: Container = match serde_json::from_str(&container_str) {
         Ok(ctr) => {
             log::debug!("Manifest is in auto-deployer format already. Deploying directly");

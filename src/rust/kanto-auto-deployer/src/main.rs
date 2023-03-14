@@ -49,7 +49,7 @@ async fn create(
     file_path: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let container_str = fs::read_to_string(file_path)?;
-    let parsed_json = manifest_parser::try_parse_manifests(&container_str);
+    let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(container) = parsed_json {
         let container: kanto_cnt::Container = container;
         let name = String::from(container.name.clone());
