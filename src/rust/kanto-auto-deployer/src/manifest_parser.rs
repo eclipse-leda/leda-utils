@@ -12,11 +12,11 @@
 // ********************************************************************************
 
 //! A module for parsing-out container manifests.
-//! 
+//!
 //! The only public API is the `try_parse_manifest` function that takes a json string
 //! read-out from disk and tries to parse it to the "internal container state representation"
 //! for Kanto-CM.
-//! 
+//!
 //! If the json is already in the internal state representation it would be parsed out directly.
 //! Otherwise an "initdir" style manifest will be assumed and an automatic conversion will be attempted
 //! by first expanding-out the manifest (since init-dir style manifests allow missing keys) and re-mapping it
@@ -25,8 +25,6 @@ use anyhow::anyhow;
 use serde_json::{Map, Value};
 use crate::containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers::Container;
 use json_patch::merge;
-
-
 
 /// Takes a key from a "template" and a "data" dictionary and replaces
 /// the template's value for that key from the the data dict.
