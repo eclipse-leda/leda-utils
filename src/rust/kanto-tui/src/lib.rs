@@ -13,6 +13,9 @@
 pub mod containers_table_view;
 pub mod kanto_api;
 pub mod kantui_config;
+pub mod io;
+pub mod ui;
+
 
 pub fn try_best<T>(err: T) {
     // Used to consume Err variants where they can be safely ignored.
@@ -20,4 +23,28 @@ pub fn try_best<T>(err: T) {
     // but failures can be (safely) ignored. E.g. we try to send a request down a
     // channel but if it's full we don't do anything
     std::mem::drop(err);
+}
+
+#[derive(Debug)]
+pub enum KantoRequest {
+    ListContainers,
+    _CreateContainer(String, String), // Name, Registry
+    StartContainer(String),           // ID
+    StopContainer(String, i64),       // ID, timeout
+    RemoveContainer(String),          // ID
+    GetLogs(String),                  // ID
+    Redeploy,
+}
+
+#[derive(Debug)]
+pub enum KantoResponse {
+    ListContainers(Vec<kanto_api::Container>),
+    GetLogs(String),
+}
+
+#[derive(PartialOrd, Ord, PartialEq, Eq, Debug)]
+pub enum RequestPriority {
+    Low = 0,
+    Normal = 10,
+    _High = 50,
 }
