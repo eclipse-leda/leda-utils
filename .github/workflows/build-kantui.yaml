@@ -80,7 +80,7 @@ jobs:
           fi
       - uses: jiro4989/build-deb-action@v2
         with:
-          package: kantui
+          package: eclipse-leda-kantui
           package_root: .debpkg
           maintainer: Eclipse Leda Development Team
           version: '${{ env.package_version }}'
