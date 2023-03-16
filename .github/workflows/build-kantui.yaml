@@ -82,7 +82,8 @@ jobs:
           EOT          
       - name: Set variables
         run: |
-          echo "package_version=`echo $(git describe --tags --always | tr -d [:alpha:] | sed 's/-/./g')`" >> $GITHUB_ENV
+          git describe --tags --always --long
+          echo "package_version=`echo $(git describe --tags --always --long | tr -d [:alpha:] | sed 's/-/./g')`" >> $GITHUB_ENV
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
             echo "package_arch=arm64" >> $GITHUB_ENV
           elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]; then
@@ -95,10 +96,10 @@ jobs:
           package: eclipse-leda-kantui
           package_root: .debpkg
           maintainer: Eclipse Leda Development Team
-          version: '1:${{ env.package_version }}'
+          version: '${{ env.package_version }}'
           arch: '${{ env.package_arch }}'
-          depends: 'libc6 (>= 2.2.1)'
-          desc: 'User interface (ncurses) for Kanto Container Management'
+          depends: 'libc6'
+          desc: 'Text user interface (cli) for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
           name: kantui-debian-packages
