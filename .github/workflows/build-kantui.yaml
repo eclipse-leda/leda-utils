@@ -67,9 +67,21 @@ jobs:
           cp kantui_conf.toml .debpkg/etc/kantui/
           cp kantui .debpkg/usr/bin
           chmod +x .debpkg/usr/bin/kantui
+          strip ./kantui
+
+          # create DEBIAN directory if you want to add other pre/post scripts
+          mkdir -p .debpkg/DEBIAN
+          cat <<EOT > .debpkg/DEBIAN/copyright
+          Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+          Upstream-Name: Eclipse Leda
+          Source: github.com/eclipse-leda/
+          
+          Files: *
+          Copyright: 2022-2023, Contributors to the Eclipse Foundation
+          License: APL-2.0
+          EOT          
       - name: Set variables
         run: |
-          echo "GIT_TAG=`echo $(git describe --tags --always)`" >> $GITHUB_ENV
           echo "package_version=`echo $(git describe --tags --always | tr -d [:alpha:] | sed 's/-/./g')`" >> $GITHUB_ENV
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
             echo "package_arch=arm64" >> $GITHUB_ENV
@@ -83,12 +95,12 @@ jobs:
           package: eclipse-leda-kantui
           package_root: .debpkg
           maintainer: Eclipse Leda Development Team
-          version: '${{ env.package_version }}'
+          version: '1:${{ env.package_version }}'
           arch: '${{ env.package_arch }}'
           depends: 'libc6 (>= 2.2.1)'
           desc: 'User interface (ncurses) for Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
           name: kantui-debian-packages
-          path: |
+          path: 
             ./*.deb
