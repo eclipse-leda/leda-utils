@@ -25,7 +25,11 @@ jobs:
         target:
           - aarch64-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
-    runs-on: ubuntu-latest
+    
+    # Not using latest here, so that building the binaries uses an older version of glibc
+    # and then can run on newer versions.
+    runs-on: ubuntu-20.04
+
     steps:
       - uses: actions/checkout@v3
         with:
