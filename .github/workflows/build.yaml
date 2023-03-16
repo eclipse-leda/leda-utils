@@ -14,8 +14,8 @@
 name: Leda-Utils Build
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+  workflow_call:
 
 jobs:
   build-kantui:
