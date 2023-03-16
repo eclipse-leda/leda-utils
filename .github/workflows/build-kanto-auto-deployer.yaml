@@ -58,11 +58,11 @@ jobs:
         run: |
           cp src/rust/kanto-auto-deployer/target/${{ matrix.target }}/release/kanto-auto-deployer . 
           chmod +x kanto-auto-deployer
-          tar czf kanto-auto-deployer-${{ matrix.target }}.tar.gz kanto-auto-deployer
+          tar czf kanto-auto-deployer-${{ matrix.target }}.tar.gz kanto-auto-deployer LICENSE README.md NOTICE.md
       - name: Upload files
         uses: actions/upload-artifact@v3
         with: 
-          name: kanto-auto-deployer-${{ matrix.target }}.tar.gz
+          name: kanto-auto-deployer-${{ matrix.target }}-archive
           if-no-files-found: error
           path: kanto-auto-deployer-${{ matrix.target }}.tar.gz
       - name: Debian Package Preparation
@@ -104,6 +104,6 @@ jobs:
           desc: 'Automated container deployment based on JSON descriptors for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
-          name: kanto-auto-deployer-debian-packages
+          name: kanto-auto-deployer-${{ matrix.target }}-debian
           path: 
             ./*.deb

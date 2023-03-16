@@ -59,11 +59,11 @@ jobs:
           cp src/rust/kanto-tui/kantui_conf.toml . 
           cp src/rust/kanto-tui/target/${{ matrix.target }}/release/kantui . 
           chmod +x kantui
-          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml kantui
+          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml kantui LICENSE README.md NOTICE.md
       - name: Upload files
         uses: actions/upload-artifact@v3
         with: 
-          name: kantui-${{ matrix.target }}.tar.gz
+          name: kantui-${{ matrix.target }}-archive
           if-no-files-found: error
           path: kantui-${{ matrix.target }}.tar.gz
       - name: Debian Package Preparation
@@ -107,6 +107,6 @@ jobs:
           desc: 'Text user interface (cli) for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
-          name: kantui-debian-packages
+          name: kantui-${{ matrix.target }}-debian
           path: 
             ./*.deb
