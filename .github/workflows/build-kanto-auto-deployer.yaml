@@ -12,7 +12,7 @@
 # ********************************************************************************/
 #
 
-name: Build KantUI
+name: Build Kanto Auto Deployer
 
 on:
   workflow_dispatch:
@@ -46,28 +46,25 @@ jobs:
           target: ${{ matrix.target }}
       - name: Build binary
         run: |
-          cd src/rust/kanto-tui
+          cd src/rust/kanto-auto-deployer
           cargo build --release
       - name: Package 
         run: |
-          cp src/rust/kanto-tui/kantui_conf.toml . 
-          cp src/rust/kanto-tui/target/${{ matrix.target }}/release/kantui . 
-          chmod +x kantui
-          strip ./kantui
-          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml kantui
+          cp src/rust/kanto-auto-deployer/target/${{ matrix.target }}/release/kanto-auto-deployer . 
+          chmod +x kanto-auto-deployer
+          strip ./kanto-auto-deployer
+          tar czf kanto-auto-deployer-${{ matrix.target }}.tar.gz kanto-auto-deployer
       - name: Upload files
         uses: actions/upload-artifact@v3
         with: 
-          name: kantui-${{ matrix.target }}.tar.gz
+          name: kanto-auto-deployer-${{ matrix.target }}.tar.gz
           if-no-files-found: error
-          path: kantui-${{ matrix.target }}.tar.gz
+          path: kanto-auto-deployer-${{ matrix.target }}.tar.gz
       - name: Debian Package Preparation
         run: |
           mkdir -p .debpkg/usr/bin
-          mkdir -p .debpkg/etc/kantui
-          cp kantui_conf.toml .debpkg/etc/kantui/
-          cp kantui .debpkg/usr/bin
-          chmod +x .debpkg/usr/bin/kantui
+          cp kanto-auto-deployer .debpkg/usr/bin
+          chmod +x .debpkg/usr/bin/kanto-auto-deployer
 
           # create DEBIAN directory if you want to add other pre/post scripts
           mkdir -p .debpkg/DEBIAN
@@ -93,15 +90,15 @@ jobs:
           fi
       - uses: jiro4989/build-deb-action@v2
         with:
-          package: eclipse-leda-kantui
+          package: eclipse-leda-kanto-auto-deployer
           package_root: .debpkg
           maintainer: Eclipse Leda Development Team
           version: '${{ env.package_version }}'
           arch: '${{ env.package_arch }}'
           depends: 'libc6'
-          desc: 'Text user interface (cli) for Eclipse Kanto Container Management'
+          desc: 'Automated container deployment based on JSON descriptors for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
-          name: kantui-debian-packages
+          name: kanto-auto-deployer-debian-packages
           path: 
             ./*.deb
