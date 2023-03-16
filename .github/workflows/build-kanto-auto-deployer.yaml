@@ -44,6 +44,11 @@ jobs:
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
           target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src/rust/kanto-auto-deployer/ -> target
+            src/rust/kantui/ -> target
       - name: Build binary
         run: |
           cd src/rust/kanto-auto-deployer
