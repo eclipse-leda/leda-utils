@@ -107,6 +107,6 @@ jobs:
           desc: 'Text user interface (cli) for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
-          name: kantui-${{ matrix.target }}-debian
+          name: kantui-debian
           path: 
             ./*.deb

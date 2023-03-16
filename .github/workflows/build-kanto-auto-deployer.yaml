@@ -104,6 +104,6 @@ jobs:
           desc: 'Automated container deployment based on JSON descriptors for Eclipse Kanto Container Management'
       - uses: actions/upload-artifact@v3
         with:
-          name: kanto-auto-deployer-${{ matrix.target }}-debian
+          name: kanto-auto-deployer-debian
           path: 
             ./*.deb
