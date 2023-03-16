@@ -19,7 +19,7 @@ on:
   workflow_call:
 
 jobs:
-  test:
+  build:
     strategy:
       matrix:
         target:
@@ -58,7 +58,6 @@ jobs:
         run: |
           cp src/rust/kanto-auto-deployer/target/${{ matrix.target }}/release/kanto-auto-deployer . 
           chmod +x kanto-auto-deployer
-          strip ./kanto-auto-deployer
           tar czf kanto-auto-deployer-${{ matrix.target }}.tar.gz kanto-auto-deployer
       - name: Upload files
         uses: actions/upload-artifact@v3
