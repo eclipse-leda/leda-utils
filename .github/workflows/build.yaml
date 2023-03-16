@@ -20,15 +20,15 @@ on:
 jobs:
   build-kantui:
     name: Build KantUI
-    uses: ./.github/workflows/build-kantui.yml
+    uses: ./.github/workflows/build-kantui.yaml
     secrets: inherit
 
   build-kanto-auto-deployer:
     name: Build Kanto Auto Deployer
-    uses: ./.github/workflows/build-kanto-auto-deployer.yml
+    uses: ./.github/workflows/build-kanto-auto-deployer.yaml
     secrets: inherit
 
 build-leda-utils:
     name: Build Leda-Utils
-    uses: ./.github/workflows/build-leda-utils.yml
+    uses: ./.github/workflows/build-leda-utils.yaml
     secrets: inherit
