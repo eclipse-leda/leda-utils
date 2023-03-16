@@ -48,10 +48,27 @@ jobs:
         run: |
           cp src/rust/kanto-tui/kantui_conf.toml . 
           cp src/rust/kanto-tui/target/${{ matrix.target }}/release/kantui . 
-          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml release/kantui
+          chmod +x kantui
+          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml kantui
       - name: Upload files
         uses: actions/upload-artifact@v3
         with: 
           name: kantui-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           path: kantui-${{ matrix.target }}.tar.gz
+      - name: Debian Package Preparation
+        run: |
+          mkdir -p .debpkg/usr/bin
+          mkdir -p .debpkg/etc/kantui
+          cp kantui_conf.toml .debpkg/etc/kantui/
+          cp kantui .debpkg/usr/bin
+          chmod +x .debpkg/usr/bin/kantui
+      - uses: jiro4989/build-deb-action@v2
+        with:
+          package: kantui
+          package_root: .debpkg
+          maintainer: Eclipse Leda Development Team
+          version: ${{ github.ref }} # refs/tags/v*.*.*
+          arch: 'amd64'
+          depends: 'libc6 (>= 2.2.1), git'
+          desc: 'User interface (ncurses) for Kanto Container Management'
