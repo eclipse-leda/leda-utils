@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/build-kanto-auto-deployer.yaml
     secrets: inherit
 
-build-leda-utils:
+  build-leda-utils:
     name: Build Leda-Utils
     uses: ./.github/workflows/build-leda-utils.yaml
     secrets: inherit
