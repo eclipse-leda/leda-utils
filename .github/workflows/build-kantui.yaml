@@ -77,7 +77,7 @@ jobs:
           package: kantui
           package_root: .debpkg
           maintainer: Eclipse Leda Development Team
-          version: ${{ github.ref }} # refs/tags/v*.*.*
+          version: 0.2.0
           arch: '${{ env.package_arch }}'
           depends: 'libc6 (>= 2.2.1), git'
           desc: 'User interface (ncurses) for Kanto Container Management'
