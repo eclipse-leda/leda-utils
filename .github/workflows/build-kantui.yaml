@@ -1,0 +1,57 @@
+# /********************************************************************************
+# * Copyright (c) 2023 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+
+name: Build KantUI
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - x86_64-unknown-linux-gnu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install Tools
+        run: |
+          apt-get update
+          apt-get install -y protobuf-compiler
+      - name: Install cross-compilation tools
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+      - name: Build binary
+        run: |
+          cd src/rust/kanto-tui
+          cargo build --release
+      - name: Package 
+        run: |
+          cp src/rust/kanto-tui/kantui_conf.toml . 
+          cp src/rust/kanto-tui/target/${{ matrix.target }}/release/kantui . 
+          tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml release/kantui
+      - name: Upload files
+        uses: actions/upload-artifact@v3
+        with: 
+          name: kantui-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          path: kantui-${{ matrix.target }}.tar.gz
