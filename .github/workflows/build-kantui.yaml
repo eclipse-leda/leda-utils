@@ -66,7 +66,7 @@ jobs:
       - name: Set variables
         run: |
           echo "GIT_TAG=`echo $(git describe --tags --always)`" >> $GITHUB_ENV
-          echo "package_version=`echo $(git describe --tags --abbrev=0 | tr -d [:alpha:])`" >> $GITHUB_ENV
+          echo "package_version=`echo $(git describe --tags --always | tr -d [:alpha:])`" >> $GITHUB_ENV
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
             echo "package_arch=arm64" >> $GITHUB_ENV
           elif if [ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ];
