@@ -69,7 +69,7 @@ jobs:
           echo "package_version=`echo $(git describe --tags --always | tr -d [:alpha:])`" >> $GITHUB_ENV
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
             echo "package_arch=arm64" >> $GITHUB_ENV
-          elif if [ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ];
+          elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]; then
             echo "package_arch=amd64" >> $GITHUB_ENV
           else
             echo "::error::Unknown architecture: ${{ matrix.target }}"
