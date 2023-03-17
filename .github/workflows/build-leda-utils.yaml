@@ -27,6 +27,10 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+      - name: Run ShellCheck
+        uses: azohra/shell-linter@latest
+        with:
+          path: "src/sh"
       - name: Debian Package Preparation
         run: |
           mkdir -p .debpkg/usr/bin
