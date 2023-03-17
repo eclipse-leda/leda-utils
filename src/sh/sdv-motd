@@ -90,7 +90,7 @@ if [ -w /run/container-management/container-management.sock ]; then
     CONTAINERS_RUNNING=$(kanto-cm list | grep -c Running)
     CONTAINERS_STOPPED=$(kanto-cm list | grep -c Stopped)
     CONTAINERS_EXITED=$(kanto-cm list | grep -c Exited)
-    printf "\033[1;31m \033[0;37mContainers....: ${CONTAINERS_RUNNING} running \t| ${CONTAINERS_STOPPED} stopped \t| ${CONTAINERS_EXITED} exited\033[m\n"
+    printf "\033[1;31m \033[0;37mContainers....: %s running \t| %s stopped \t| %s exited\033[m\n" "${CONTAINERS_RUNNING}" "${CONTAINERS_STOPPED}" "${CONTAINERS_EXITED}"
 fi
 
 printf "\033[mTo check SDV services health, run \033[0;37m$ \033[1;33msdv-health\033[m\n"
