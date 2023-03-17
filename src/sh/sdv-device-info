@@ -13,7 +13,7 @@
 # ********************************************************************************/
 # shellcheck disable=SC3043
 # shellcheck disable=SC2034
-
+# shellcheck disable=SC2059
 
 # Config
 COMMAND="show"

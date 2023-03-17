@@ -89,9 +89,7 @@ check_service()
 	STATUS=$($SYSTEMCTL_CMD status $service -n 0 2>&1)
 	ACTIVE=$(echo "$STATUS" | grep 'Active:' | xargs)
 
-	#echo "* $service status: $ACTIVE"
-	echo "$ACTIVE" | grep -q "active (running)\|active (listening)"
-	if [ $? -eq 0 ]; then
+	if (echo "$ACTIVE" | grep -q "active (running)\|active (listening)") then
 		printf -- "$TEXT_OK\n"
 	else
 		[ -z "$ACTIVE" ] && ACTIVE="$( $SYSTEMCTL_CMD status $service -n 0 2>&1 1>/dev/null )"
@@ -151,7 +149,7 @@ prefix()
 {
 	local prefix="$1"
 	local IFS=''
-	while read line; do
+	while read -r line; do
 		printf -- "${COL_WHITE}${prefix}${COL_NC} %s\n" "${line}"
 	done
 }
