@@ -10,7 +10,7 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
-use crate::{kanto_api, try_best};
+use crate::{Result, cm_types, try_best};
 use cursive::align::HAlign;
 use cursive::view::Scrollable;
 use cursive::views::{Dialog, OnEventView, TextView};
@@ -61,14 +61,14 @@ impl TableViewItem<ContainerColumn> for ContainersTable {
     }
 }
 
-fn state_to_string(state: &Option<kanto_api::cm_types::State>) -> String {
+fn state_to_string(state: &Option<cm_types::State>) -> String {
     if let Some(state) = state {
         return state.status.clone();
     }
 
     String::from("Unknown?")
 }
-pub fn items_to_columns(req_items: Vec<kanto_api::Container>) -> Vec<ContainersTable> {
+pub fn items_to_columns(req_items: Vec<cm_types::Container>) -> Vec<ContainersTable> {
     let mut out: Vec<ContainersTable> = vec![];
 
     for c in req_items {
@@ -99,7 +99,7 @@ pub fn generate_table_view() -> CTView {
         })
 }
 
-pub fn update_table_items(siv: &mut cursive::Cursive, list: Vec<kanto_api::Container>) {
+pub fn update_table_items(siv: &mut cursive::Cursive, list: Vec<cm_types::Container>) {
     let mut t = siv
         .find_name::<CTView>(TABLE_IDENTIFIER)
         .expect("Wrong table identifier?");
@@ -160,7 +160,7 @@ pub fn set_cursive_theme(siv: &mut cursive::CursiveRunnable) {
     });
 }
 
-pub fn buffered_termion_backend() -> kanto_api::Result<Box<dyn cursive::backend::Backend>> {
+pub fn buffered_termion_backend() -> Result<Box<dyn cursive::backend::Backend>> {
     let backend = cursive::backends::termion::Backend::init()?;
     let buffered_backend = cursive_buffered_backend::BufferedBackend::new(backend);
     Ok(Box::new(buffered_backend))

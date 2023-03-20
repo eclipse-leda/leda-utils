@@ -1,7 +1,7 @@
 use cursive::views::Dialog;
 use cursive::{traits::*, Cursive};
 use super::{
-    kanto_api,
+    Result,
     try_best, KantoRequest, KantoResponse, RequestPriority,
     kantui_config,
 };
@@ -17,7 +17,7 @@ pub fn run(
     tx_requests: Sender<KantoRequest, RequestPriority>,
     rx_responses: Receiver<KantoResponse, RequestPriority>,
     config: kantui_config::AppConfig,
-) -> kanto_api::Result<()> {
+) -> Result<()> {
     let mut siv = cursive::default();
 
     table::set_cursive_theme(&mut siv);

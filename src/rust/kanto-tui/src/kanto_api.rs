@@ -10,9 +10,9 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
+#[cfg(unix)]
 use std::path::Path;
 use strip_ansi_escapes::strip;
-#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::{
     fs::File,
@@ -21,15 +21,7 @@ use tokio::{
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
-pub type ClientChannel = cm_rpc::containers_client::ContainersClient<tonic::transport::Channel>;
-
-// This is a re-export to allow for the compilation and inclusion of deeply nested protobufs
-mod containers {
-    tonic::include_proto!("mod");
-}
-pub use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers::{self as cm_rpc, CreateContainerResponse};
-pub use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers::{self as cm_types, Container};
+use super::{cm_rpc,cm_types, ClientChannel, Result};
 
 const CONT_TEMPLATE: &'static str = include_str!("container_json_template.in");
 
@@ -51,8 +43,8 @@ pub async fn create_container(
     channel: &mut ClientChannel,
     name: &str,
     registry: &str,
-) -> Result<CreateContainerResponse> {
-    let mut template: Container = serde_json::from_str(CONT_TEMPLATE)?;
+) -> Result<cm_rpc::CreateContainerResponse> {
+    let mut template: cm_types::Container = serde_json::from_str(CONT_TEMPLATE)?;
     template.name = String::from(name);
     template.image.as_mut().ok_or("Field name missing")?.name = String::from(registry);
 
@@ -63,7 +55,7 @@ pub async fn create_container(
     Ok(_response.into_inner())
 }
 
-pub async fn get_container_by_name(channel: &mut ClientChannel, name: &str) -> Result<Container> {
+pub async fn get_container_by_name(channel: &mut ClientChannel, name: &str) -> Result<cm_types::Container> {
     let all_containers = list_containers(channel).await?;
     let cont = all_containers
         .into_iter()

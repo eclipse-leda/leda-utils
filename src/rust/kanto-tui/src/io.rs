@@ -1,13 +1,15 @@
 use super::{
-    kanto_api::{self, Result},
+    Result,
+    kanto_api,
     try_best, KantoRequest, KantoResponse, RequestPriority,
-    kantui_config
+    kantui_config,
+    cm_rpc
 };
 use async_priority_channel::{Receiver, Sender};
 
 async fn process_request(
     request: KantoRequest,
-    c: &mut kanto_api::cm_rpc::containers_client::ContainersClient<tonic::transport::Channel>,
+    c: &mut cm_rpc::containers_client::ContainersClient<tonic::transport::Channel>,
     response_tx: &Sender<KantoResponse, RequestPriority>,
     config: &kantui_config::AppConfig,
 ) -> Result<()> {
@@ -59,7 +61,7 @@ pub async fn async_io_thread(
     response_tx: Sender<KantoResponse, RequestPriority>,
     request_rx: &mut Receiver<KantoRequest, RequestPriority>,
     config: kantui_config::AppConfig,
-) -> kanto_api::Result<()> {
+) -> Result<()> {
     let mut c = kanto_api::get_connection(&config.socket_path).await?;
     loop {
         if let Ok((request, _)) = request_rx.recv().await {

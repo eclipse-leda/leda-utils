@@ -10,11 +10,12 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
-use nix::unistd::Uid;
-use kantui::{kanto_api, kantui_config, KantoResponse, RequestPriority, KantoRequest};
 use async_priority_channel::bounded;
+use kantui::{kantui_config, KantoRequest, KantoResponse, RequestPriority, Result};
+use nix::unistd::Uid;
 
-fn main() -> kanto_api::Result<()> {
+#[cfg(unix)]
+fn main() -> Result<()> {
     let config = kantui_config::get_app_configuration()?;
 
     if !Uid::effective().is_root() {

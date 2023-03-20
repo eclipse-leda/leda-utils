@@ -10,7 +10,7 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
-use crate::kanto_api::Result;
+use super::Result;
 use clap::Parser;
 use config::Config;
 use serde::Deserialize;

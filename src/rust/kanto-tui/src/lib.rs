@@ -15,6 +15,16 @@ pub mod kantui_config;
 pub mod io;
 pub mod ui;
 
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+pub type ClientChannel = cm_rpc::containers_client::ContainersClient<tonic::transport::Channel>;
+
+// This is a re-export to allow for the compilation and inclusion of deeply nested protobufs
+mod containers {
+    tonic::include_proto!("mod");
+}
+pub use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as cm_rpc;
+pub use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as cm_types;
+
 
 pub fn try_best<T>(err: T) {
     // Used to consume Err variants where they can be safely ignored.
@@ -37,7 +47,7 @@ pub enum KantoRequest {
 
 #[derive(Debug)]
 pub enum KantoResponse {
-    ListContainers(Vec<kanto_api::Container>),
+    ListContainers(Vec<cm_types::Container>),
     GetLogs(String),
 }
 
