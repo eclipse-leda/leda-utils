@@ -32,33 +32,38 @@ name = "kantui"
 path = "src/main.rs"
 
 [dependencies]
-prost = "0.11"
-tokio = { version = "1.20.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net", "process"] }
-tokio-stream = { version = "0.1", features = ["net"] }
-tonic = {version = "0.8.2" }
-tower = { version = "0.4" }
-http = "0.2"
-hyper = { version = "0.14", features = ["full"] }
+prost = "0.10.4"
+tokio = { version = "1.20.0", features = [
+    "rt-multi-thread",
+    "fs",
+    "macros",
+    "process",
+] }
+tokio-stream = { version = "0.1.12", features = ["net"] }
+tonic = { version = "0.7.2" }
+tower = { version = "0.4.13" }
+hyper = { version = "0.14.25" }
 serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
-cursive_table_view = "0.13"
+serde_json = { version = "1.0.89", default-features = false, features = [
+    "alloc",
+] }
+cursive_table_view = "0.13.3"
 nix = "0.26.1"
 enclose = "1.1.8"
 clap = { version = "3.2.23", features = ["derive"] }
 config = "0.13.3"
-anyhow = "1.0.68"
 strip-ansi-escapes = "0.1.1"
 shlex = "1.1.0"
 async-priority-channel = "0.1.0"
 cursive_buffered_backend = "0.5.0"
 
 [dependencies.cursive]
-default-features=false
+default-features = false
 version = "0.16.2"
 features = ["termion-backend"]
 
 [build-dependencies]
-tonic-build =  "0.8.2"
+tonic-build = "0.7.2"
 
 [profile.release]
 lto = true
