@@ -11,7 +11,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-prost = "0.11"
+prost = "0.11.3"
 tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
 tokio-stream = { version = "0.1", features = ["net"] }
 tonic = {version = "0.8.2" }
@@ -21,7 +21,10 @@ hyper = { version = "0.14", features = ["full"] }
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
 glob = "0.3.0"
-
+anyhow = "1.0.69"
+json-patch = "0.3.0"
+log = "0.4.0"
+env_logger = "0.9.3"
 
 [build-dependencies]
 tonic-build =  "0.8.2"
@@ -29,3 +32,6 @@ tonic-build =  "0.8.2"
 [[bin]]
 name = "kanto-auto-deployer"
 path = "src/main.rs"
+
+[profile.release]
+lto = true
