@@ -28,8 +28,8 @@ CERT_DIR="/data/var/certificates"
 DATA_AZURE_ID_SCOPE_FILE="/data/var/certificates/azure.idscope"
 DATA_AZURE_CONNECTION_STRING_FILE="/data/var/certificates/azure.connectionstring"
 
-CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE="/data/var/containers/manifests_dev/cloudconnector.json.template"
-CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR="/data/var/containers/manifests_dev/cloudconnector.json"
+CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR_TEMPLATE="/data/var/containers/manifests/cloudconnector.json.template"
+CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR="/data/var/containers/manifests/cloudconnector.json"
 
 if [ -d ${CERT_DIR} ]; then
     echo "- Certificates directory exists"
