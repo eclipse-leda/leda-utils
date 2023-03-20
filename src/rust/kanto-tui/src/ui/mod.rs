@@ -4,9 +4,13 @@ use super::{
     kanto_api,
     try_best, KantoRequest, KantoResponse, RequestPriority,
     kantui_config,
-    containers_table_view as table
 };
+
 use async_priority_channel::{Receiver, Sender};
+
+pub mod containers_table_view;
+use containers_table_view as table;
+
 
 /// Setup the user interface and start the UI thread
 pub fn run(
