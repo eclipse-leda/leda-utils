@@ -12,7 +12,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #*******************************************************************************/
 # shellcheck disable=SC3043
-
+# shellcheck disable=SC2039
 
 HOST_VXCAN="vxcan0"
 DOCKER_VXCAN="vxcan1"
@@ -34,11 +34,6 @@ get_ctr_pid() {
 	#ctr t ps $container | grep -v PID | head -n 1 | awk '{print $1}'
 	sudo --preserve-env=CONTAINERD_ADDRESS,CONTAINERD_NAMESPACE ctr t ls | grep "$container" | awk '{print $2}'
 	return $?
-}
-
-get_k3s_pid() {
-	# FIXME: implement getting entrypoint pid from kubelet with k3s tools
-	return 1
 }
 
 print_usage() {

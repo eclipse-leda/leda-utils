@@ -4,6 +4,7 @@
 # shellcheck disable=SC2086
 # shellcheck disable=SC2034
 # shellcheck disable=SC2059
+# shellcheck disable=SC2039
 # /********************************************************************************
 # * Copyright (c) 2022 Contributors to the Eclipse Foundation
 # *
@@ -375,7 +376,7 @@ init_colors
 #########################################
 # Read Local / Global SDV configuration #
 #########################################
-
+# shellcheck source=/etc/sdv/sdv.conf
 if [ -f "$HOME/.config/sdv.conf" ]; then
 	. "$HOME/.config/sdv.conf"
 	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && grep -v  '^#' $HOME/.config/sdv.conf | sort -u

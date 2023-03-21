@@ -40,6 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           sh_checker_comment: true
+          sh_checker_shfmt_disable: true
       - name: Debian Package Preparation
         run: |
           mkdir -p .debpkg/usr/bin

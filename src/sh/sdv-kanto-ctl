@@ -4,6 +4,7 @@
 # shellcheck disable=SC2086
 # shellcheck disable=SC2034
 # shellcheck disable=SC2059
+# shellcheck disable=SC2039
 # /********************************************************************************
 # * Copyright (c) 2023 Contributors to the Eclipse Foundation
 # *
@@ -47,31 +48,6 @@ init_colors() {
 	export SEPARATOR="${COL_GRAY}-----------------------------------------------------------${COL_NC}"
 }
 
-cm_get_container_id ()
-{
-	local CONT_NAME=$1
-	${KANTO_CMD} get -n $CONT_NAME 2>/dev/null | jq -r " .container_id"
-}
-
-cm_check_logging_type ()
-{
-	local CONT_ID=$1
-	${KANTO_CMD} get ${CONT_ID} | jq -r " .host_config.log_config.driver_config.type"
-}
-
-cm_get_container_logs () # get the last n (following tail syntax) lines of a container's logs by name
-{
-	local CONT_NAME=$1
-	local LOG_MAX_LINES=$2
-	CONT_ID=$(cm_get_container_id $CONT_NAME)
-	if [ $CONT_ID ]; then
-		LOGGING_TYPE=$(cm_check_logging_type $CONT_ID)
-		if [ $LOGGING_TYPE = "json-file" ]; then # according to kanto docs logging type is either "json-file" (to json.log) or "none"
-			tail -n $LOG_MAX_LINES ${KANTO_CM_HOME_DIR}/containers/${CONT_ID}/${KANTO_CM_LOG_FILE}
-		fi
-	fi
-}
-
 ######################################################
 #                        setup                       #
 ######################################################
@@ -95,10 +71,10 @@ display_help() {
 		echo "		Prints all configured container registries"
 		echo "	show-config"
 		echo "		Print the container management configuration"
-		echo "	set <key> <value>"
+		echo "	set-value <key> <value>"
 		echo "		Set a primitive configuration value. Key in JSON Dot-Notation"
-		echo "		Examples: $0 set containers.registry_configurations.MyRegistry.credentials.password foobar"
-		echo "		          $0 set things.enable true"
+		echo "		Examples: $0 set-value containers.registry_configurations.MyRegistry.credentials.password foobar"
+		echo "		          $0 set-value things.enable true"
 		echo "Options:"
 		echo "	--no-reload : Do not reload the configuration and restart the container-management service automatically"
 		echo "	--ansi : Don't use colored output."
@@ -188,12 +164,12 @@ while [ -n "$1" ]; do
 			echo "Error: Unknown argument for command show-config: $1"
 			exit 1
 		done
-	elif [ "$1" = "set" ]; then
+	elif [ "$1" = "set-value" ]; then
 		COMMAND=$1
 		CONFIG_KEY=$2
 		CONFIG_VALUE=$3
 		if [ "$#" -ne 3 ]; then
-			echo "ERROR: set command requires two arguments: <key> and <value>"
+			echo "ERROR: set-value command requires two arguments: <key> and <value>"
 			exit 1
 		else
 			shift 2
@@ -229,7 +205,7 @@ init_colors
 #########################################
 # Read Local / Global SDV configuration #
 #########################################
-
+# shellcheck source=/etc/sdv/sdv.conf
 if [ -f "$HOME/.config/sdv.conf" ]; then
 	. "$HOME/.config/sdv.conf"
 	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && grep -v  '^#' $HOME/.config/sdv.conf | sort -u
@@ -243,6 +219,37 @@ fi
 ######################################################
 #                        commands                    #
 ######################################################
+
+apply_changes() {
+	local TMPFILE="$1"
+	if [ -w ${KANTO_CONFIG} ]; then
+		diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null
+		DIFF_RC=$?
+		if [ "${DIFF_RC}" -eq 1 ]; then
+			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
+			echo "Backing up to ${BACKUP}"
+			echo "Applying changes:"
+			cp ${KANTO_CONFIG} ${BACKUP}
+			cp ${TMPFILE} ${KANTO_CONFIG}
+			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
+			CHANGES_APPLIED=1
+		elif [ "${DIFF_RC}" -eq 0 ]; then
+			echo "No difference to existing configuration."
+		else
+			echo "Error ${DIFF_RC} trying to diff config files."
+			exit ${DIFF_RC}
+		fi
+	else
+		echo "Unable to apply changes:"
+		jq < ${TMPFILE}
+		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
+		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
+		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
+		echo "Run: sudo cp ${TMPFILE} ${KANTO_CONFIG}"
+		exit 1
+	fi
+
+}
 
 # Fragment for a new container registry configuration:
 add_registry() {
@@ -261,28 +268,9 @@ add_registry() {
          } }' < ${KANTO_CONFIG} > ${TMPFILE}
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
-	if [ -w ${KANTO_CONFIG} ]; then
-		if ! diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null; then
-			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
-			echo "Backing up to ${BACKUP}"
-			echo "Applying changes:"
-			cp ${KANTO_CONFIG} ${BACKUP}
-			cp ${TMPFILE} ${KANTO_CONFIG}
-			jq --arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" '.containers.registry_configurations | with_entries(select(.key|contains($REGISTRY_HOSTNAME)))' < ${KANTO_CONFIG} 
-			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
-			CHANGES_APPLIED=1
-		else
-			echo "No difference to existing configuration."
-		fi
-	else
-		echo "Unable to apply changes:"
-		jq --arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" '.containers.registry_configurations | with_entries(select(.key|contains($REGISTRY_HOSTNAME)))' < ${TMPFILE} 
-		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
-		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
-		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
-		echo "Run: sudo cp ${TMPFILE} ${KANTO_CONFIG}"
-		exit 1
-	fi
+	apply_changes "${TMPFILE}"
+
+	jq --arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" '.containers.registry_configurations | with_entries(select(.key|contains($REGISTRY_HOSTNAME)))' < ${KANTO_CONFIG} 
 }
 
 remove_registry() {
@@ -295,28 +283,9 @@ remove_registry() {
 	
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
-	if [ -w ${KANTO_CONFIG} ]; then
-		if ! diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null; then
-			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
-			echo "Backing up to ${BACKUP}"
-			echo "Applying changes:"
-			cp ${KANTO_CONFIG} ${BACKUP}
-			cp ${TMPFILE} ${KANTO_CONFIG}
-			jq '.containers.registry_configurations' < ${KANTO_CONFIG} 
-			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
-			CHANGES_APPLIED=1
-		else
-			echo "No difference to existing configuration."
-		fi
-	else
-		echo "Unable to apply changes:"
-		jq '.containers.registry_configurations' < ${TMPFILE} 
-		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
-		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
-		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
-		echo "Run: sudo cp ${TMPFILE} ${KANTO_CONFIG}"
-		exit 1
-	fi
+	apply_changes "${TMPFILE}"
+
+	jq '.containers.registry_configurations' < ${TMPFILE}
 }
 
 remove_all_registries() {
@@ -329,28 +298,9 @@ remove_all_registries() {
 	
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
-	if [ -w ${KANTO_CONFIG} ]; then
-		if ! diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null; then
-			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
-			echo "Backing up to ${BACKUP}"
-			echo "Applying changes:"
-			cp ${KANTO_CONFIG} ${BACKUP}
-			cp ${TMPFILE} ${KANTO_CONFIG}
-			jq < ${KANTO_CONFIG} 
-			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
-			CHANGES_APPLIED=1
-		else
-			echo "No difference to existing configuration."
-		fi
-	else
-		echo "Unable to apply changes:"
-		jq < ${TMPFILE} 
-		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
-		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
-		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
-		echo "Run: sudo cp ${TMPFILE} ${KANTO_CONFIG}"
-		exit 1
-	fi
+	apply_changes "${TMPFILE}"
+	
+	jq < ${TMPFILE}
 }
 
 list_registries() {
@@ -371,26 +321,9 @@ set_config() {
 	'setpath( $CONFIG_KEY|split(".")[1:]; $CONFIG_VALUE)' < ${KANTO_CONFIG} > ${TMPFILE}
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
-	if [ -w ${KANTO_CONFIG} ]; then
-		if ! diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null; then
-			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
-			echo "Backing up to ${BACKUP}"
-			cp ${KANTO_CONFIG} ${BACKUP}
-			cp ${TMPFILE} ${KANTO_CONFIG}
-			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
-			CHANGES_APPLIED=1
-		else
-			echo "No difference to existing configuration."
-		fi
-	else
-		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
-		jq < ${TMPFILE}
-		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
-		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
-		echo "Run: sudo cp ${TMPFILE} ${KANTO_CONFIG}"
-		exit 1
-	fi
-
+	apply_changes "${TMPFILE}"
+	
+	jq < ${TMPFILE}
 }
 
 ######################################################
@@ -407,7 +340,7 @@ fi
 [ "$COMMAND" = "remove-all-registries" ] && remove_all_registries
 [ "$COMMAND" = "list-registries" ] && list_registries
 [ "$COMMAND" = "show-config" ] && show_config
-[ "$COMMAND" = "set" ] && set_config
+[ "$COMMAND" = "set-value" ] && set_config
 
 if [ "$CHANGES_APPLIED" ]; then
 	if [ "${RELOAD}" ]; then
