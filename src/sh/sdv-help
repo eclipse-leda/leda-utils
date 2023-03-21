@@ -1,0 +1,46 @@
+#!/bin/sh
+# shellcheck disable=SC2034
+# shellcheck disable=SC1091
+# /********************************************************************************
+# * Copyright (c) 2023 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+
+printf "\033[m"
+printf "Welcome to the \033[1;35mEclipse Leda Quickstart\033[m image, where you can experiment with "
+printf "COVESA \033[1;33mVehicle Signal Specification\033[m, "
+printf "Eclipse \033[1;33mKuksa.VAL Databroker\033[m, "
+printf "Eclipse \033[1;33mVelocitas\033[m, "
+printf "Eclpse \033[1;33mKanto\033[m, "
+printf "and more automotive open source packages to come from the Eclipse Software-Defined Vehicle working group.\n"
+
+printf "\n"
+printf "\033[1;34mGeneral\033[m: "
+printf "\033[mTo check SDV services health, run \033[0;37m$ \033[1;33msdv-health\033[m\n"
+printf "Use \033[0;37m$ \033[1;33msdv-provision\033[m to generate self-signed device certificates\n"
+printf "Use \033[0;37m$ \033[1;33msdv-device-info\033[m to display current device configuration\n"
+printf "Change keyboard layout with \033[0;37m$ \033[1;33mloadkeys de\033[m\n"
+
+printf "\n"
+printf "\033[1;34mContainers\033[m: "
+printf "\033[mKanto's built-in cli tool is \033[0;37m$ \033[1;33mkanto-cm\033[m\n"
+printf "\033[mFor a UI, try \033[0;37m$ \033[1;33mkantui\033[m to start/stop and view logs\n"
+printf "Use \033[0;37m$ \033[1;33mkanto-auto-deployer\033[m to deploy containers from JSON manifests\n"
+
+printf "\n"
+printf "\033[1;34mMessaging and Vehicle Signals\033[m: "
+printf "\033[mUse \033[0;37m$ \033[1;33mdatabroker-cli\033[m to connect to Eclipse Kuksa Databroker and query vehicle signals\n"
+printf "\033[mUse \033[0;37m$ \033[1;33mmosquitto_sub -t '#' -v\033[m to monitor local MQTT messages\n"
+
+printf "\033[m\n"
+printf "Have fun! Interested in SDV? Join us at https://github.com/eclipse-leda/ or https://projects.eclipse.org/projects/automotive.leda"
+printf "\033[m\n"

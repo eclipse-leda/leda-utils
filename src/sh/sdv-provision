@@ -12,7 +12,7 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 # shellcheck disable=SC3043
-
+# shellcheck disable=SC2039
 
 # Generating dummy device certificates (self-signed) according to tutorial
 # https://learn.microsoft.com/en-us/azure/iot-hub/tutorial-x509-self-sign
