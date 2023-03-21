@@ -332,7 +332,6 @@ set_config() {
 
 if [ -z "$COMMAND" ]; then
 	display_help
-	exit 0
 fi 
 
 [ "$COMMAND" = "add-registry" ] && add_registry
