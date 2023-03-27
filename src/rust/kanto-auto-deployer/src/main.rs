@@ -20,11 +20,14 @@ pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
 }
+pub mod fs_watcher;
+
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
 use glob::glob;
 use std::env;
 use std::fs;
+
 
 fn print_usage() {
     println!("USAGE:");
