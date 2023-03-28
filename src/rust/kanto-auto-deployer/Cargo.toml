@@ -26,6 +26,8 @@ json-patch = "0.3.0"
 log = "0.4.0"
 env_logger = "0.9.3"
 notify = "5.1.0"
+clap = { version = "3.2.23", features = ["derive"] }
+enclose = "1.1.8"
 
 [build-dependencies]
 tonic-build =  "0.8.2"

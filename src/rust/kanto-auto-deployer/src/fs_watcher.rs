@@ -1,9 +1,11 @@
-use notify::{Config, Event, PollWatcher, RecursiveMode, Watcher};
+use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use std::future::Future;
 use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+
+pub use notify::Event;
 use tokio::sync::mpsc::{channel, Receiver};
 
 const POLL_SECONDS: f64 = 2.0;

@@ -11,6 +11,7 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 pub mod manifest_parser;
+use fs_watcher::is_filetype;
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tonic::transport::{Endpoint, Uri};
@@ -22,20 +23,50 @@ pub mod containers {
 }
 pub mod fs_watcher;
 
+use clap::Parser;
+use glob::glob;
+use std::ffi::OsStr;
+use std::fs;
+use std::path::PathBuf;
+type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Channel>;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
-use glob::glob;
-use std::env;
-use std::fs;
 
+#[derive(Parser, Debug)]
+#[clap(version, about)]
+struct CliArgs {
+    /// Set the path to the directory containing the manifests
+    #[clap(default_value = ".")]
+    manifests_path: PathBuf,
 
-fn print_usage() {
-    println!("USAGE:");
-    println!("  kanto-auto-deployer [PATH TO MANIFESTS FOLDER]")
+    /// Set the path to the Kanto Container Management API socket
+    #[clap(
+        long,
+        short,
+        action,
+        default_value = "/run/container-management/container-management.sock"
+    )]
+    socket_cm: PathBuf,
+
+    /// Run as a daemon that continuously monitors the provided path for changes
+    #[clap(long, short, action, default_value_t = false)]
+    daemonize: bool,
+}
+
+async fn get_client(socket_path: &OsStr) -> Result<CmClient, Box<dyn std::error::Error>> {
+    let socket_path = PathBuf::from(socket_path); // TODO: remove clone!
+                                                  // TODO: remove clone!
+    let channel = Endpoint::try_from("http://[::]:50051")?
+        .connect_with_connector(service_fn(move |_: Uri| {
+            UnixStream::connect(socket_path.clone())
+        }))
+        .await?;
+    let client = kanto::containers_client::ContainersClient::new(channel);
+    Ok(client)
 }
 
 async fn start(
-    _client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>,
+    _client: &mut CmClient,
     name: &String,
     _id: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -48,7 +79,7 @@ async fn start(
 }
 
 async fn create(
-    _client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>,
+    _client: &mut CmClient,
     file_path: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let container_str = fs::read_to_string(file_path)?;
@@ -82,38 +113,20 @@ async fn create(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
-
-    let args: Vec<String> = env::args().collect();
-    let mut file_path = String::new();
+async fn deploy_directory(
+    directory_path: &str,
+    client: &mut CmClient,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut file_path = String::from(directory_path);
     let mut path = String::new();
-    if args.len() == 2 {
-        file_path.push_str(&args[1]);
-        if file_path.eq("--help") || file_path.eq("-h") {
-            print_usage();
-            return Ok(());
-        }
-        path.push_str(&file_path.clone());
-    } else {
-        file_path.push_str(".");
-        path.push_str(&file_path.clone());
-    }
+
+    path.push_str(&file_path.clone());
     file_path.push_str("/*.json");
 
-    let socket_path = "/run/container-management/container-management.sock";
-    //The uri is ignored and a UDS connection is established instead.
-    let channel = Endpoint::try_from("http://[::]:50051")?
-        .connect_with_connector(service_fn(move |_: Uri| UnixStream::connect(socket_path)))
-        .await?;
-
-    // Get the client
-    let mut client = kanto::containers_client::ContainersClient::new(channel);
     let mut b_found = false;
+
     log::info!("Reading manifests from [{}]", path);
+
     let mut full_name = String::new();
     for entry in glob(&file_path).expect("Failed to parse glob pattern") {
         let name = entry
@@ -122,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string();
         full_name.push_str(&name);
         b_found = true;
-        match create(&mut client, &full_name).await {
+        match create(client, &full_name).await {
             Ok(_) => {}
             Err(e) => log::error!("[CM error] Failed to create container: {}", e),
         };
@@ -130,7 +143,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !b_found {
         log::error!("No manifests are found in [{}]", path);
-        print_usage();
     }
+    Ok(())
+}
+
+async fn redeploy_on_change(e: fs_watcher::Event, manifests_path: String, mut client: CmClient) -> Result<(), Box<dyn std::error::Error>> {
+    for path in &e.paths {
+        if !is_filetype(path, "json") {
+            continue;
+        }
+        if e.kind.is_create()  {
+            todo!("Add logic for new manifest added");
+        } 
+        if e.kind.is_modify() {
+            todo!("Add logic for old manifest modified");
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    let cli = CliArgs::parse();
+    log::debug!("{:#?}", cli);
+    
+    let mut client = get_client(cli.socket_cm.as_os_str()).await?;
+    let manifests_path = String::from(cli.manifests_path.to_string_lossy());
+
+    log::info!("Running initial deployment of {:#?}", cli.manifests_path);
+    deploy_directory(&manifests_path, &mut client).await?;
+
+    if cli.daemonize {
+        log::info!("Running in daemon mode. Continuously monitoring {:#?}", cli.manifests_path);
+        fs_watcher::async_watch(&manifests_path, enclose::enclose!((manifests_path, client)|e| async move {
+            todo!("Cleanup")
+            // redeploy_on_change(e, manifests_path, client).await.unwrap()
+        })).await?
+    } 
+    
     Ok(())
 }
