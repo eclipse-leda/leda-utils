@@ -200,18 +200,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let cli = CliArgs::parse();
+
     let socket_path = String::from(cli.socket_cm.to_string_lossy());
-    let manifests_path = String::from(cli.manifests_path.to_string_lossy());
+
+    let canonical_path = match std::fs::canonicalize(cli.manifests_path.clone()) {
+        Ok(p) => p,
+        Err(e) => {
+            log::error!("Could not expand path {:#?}, err: {}", cli.manifests_path, e);
+            std::process::exit(-1);
+        },
+    };
+    let manifests_path = String::from(canonical_path.to_string_lossy());
     
     log::debug!("{:#?}", cli);
     
     let mut client = get_client(&socket_path).await?;
 
-    log::info!("Running initial deployment of {:#?}", cli.manifests_path);
+    log::info!("Running initial deployment of {:#?}", manifests_path);
     deploy_directory(&manifests_path, &mut client).await?;
 
     if cli.daemon {
-        log::info!("Running in daemon mode. Continuously monitoring {:#?}", cli.manifests_path);
+        log::info!("Running in daemon mode. Continuously monitoring {:#?}", manifests_path);
         fs_watcher::async_watch(&manifests_path, enclose::enclose!((client)|e| async move {
             redeploy_on_change(e, client).await
         })).await?
