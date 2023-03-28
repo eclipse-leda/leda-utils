@@ -11,15 +11,21 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-prost = "0.11.3"
-tokio = { version = "1.0", features = [ "rt-multi-thread", "time", "fs", "macros", "net",] }
-tokio-stream = { version = "0.1", features = ["net"] }
-tonic = {version = "0.8.2" }
-tower = { version = "0.4" }
-http = "0.2"
-hyper = { version = "0.14", features = ["full"] }
+prost = "0.10.4"
+tokio = { version = "1.20.0", features = [
+    "rt-multi-thread",
+    "fs",
+    "macros",
+    "process",
+] }
+tokio-stream = { version = "0.1.12", features = ["net"] }
+tonic = { version = "0.7.2" }
+tower = { version = "0.4.13" }
+hyper = { version = "0.14.25" }
 serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.89", default-features = false, features = ["alloc"] }
+serde_json = { version = "1.0.89", default-features = false, features = [
+    "alloc",
+] }
 glob = "0.3.0"
 anyhow = "1.0.69"
 json-patch = "0.3.0"
@@ -30,7 +36,7 @@ clap = { version = "3.2.23", features = ["derive"] }
 enclose = "1.1.8"
 
 [build-dependencies]
-tonic-build =  "0.8.2"
+tonic-build = "0.7.2"
 
 [[bin]]
 name = "kanto-auto-deployer"
