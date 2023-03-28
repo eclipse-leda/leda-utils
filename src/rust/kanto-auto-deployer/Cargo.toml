@@ -1,8 +1,8 @@
 [package]
 name = "kanto-auto-deployer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
-description = "Kanto Auto Deployer via a unix socket"
+description = "Automated deployment of Kanto Container Management Manifests"
 license = "Apache-2.0"
 homepage = ""
 repository = "https://github.com/eclipse-leda/leda-utils"
