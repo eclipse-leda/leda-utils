@@ -8,7 +8,7 @@ use std::{
 pub use notify::Event;
 use tokio::sync::mpsc::{channel, Receiver};
 
-const POLL_SECONDS: f64 = 2.0;
+const POLL_SECONDS: f64 = 10.0;
 
 /// Directly taken from the notify async watcher example with slight modifications
 fn async_watcher() -> notify::Result<(PollWatcher, Receiver<notify::Result<Event>>)> {
