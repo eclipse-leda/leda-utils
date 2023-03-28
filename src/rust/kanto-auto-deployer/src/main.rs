@@ -54,8 +54,7 @@ struct CliArgs {
 }
 
 async fn get_client(socket_path: &str) -> Result<CmClient, Box<dyn std::error::Error>> {
-    let socket_path = PathBuf::from(socket_path); // TODO: remove clone!
-                                                  // TODO: remove clone!
+    let socket_path = PathBuf::from(socket_path);
     let channel = Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_: Uri| {
             UnixStream::connect(socket_path.clone())
@@ -200,20 +199,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let cli = CliArgs::parse();
+    log::debug!("{:#?}", cli);
 
     let socket_path = String::from(cli.socket_cm.to_string_lossy());
-
-    let canonical_path = match std::fs::canonicalize(cli.manifests_path.clone()) {
+    let canonical_manifests_path = match std::fs::canonicalize(&cli.manifests_path) {
         Ok(p) => p,
         Err(e) => {
-            log::error!("Could not expand path {:#?}, err: {}", cli.manifests_path, e);
+            log::error!("Could not expand path {:#?}, err: {}", &cli.manifests_path, e);
             std::process::exit(-1);
         },
     };
-    let manifests_path = String::from(canonical_path.to_string_lossy());
-    
-    log::debug!("{:#?}", cli);
-    
+    let manifests_path = String::from(canonical_manifests_path.to_string_lossy());
     let mut client = get_client(&socket_path).await?;
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
