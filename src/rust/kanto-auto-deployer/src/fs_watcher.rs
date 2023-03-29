@@ -23,9 +23,8 @@ use tokio::sync::mpsc::{channel, Receiver};
 
 const POLL_SECONDS: f64 = 10.0;
 
-
 /// Based on the examples from the notify crate for async watchers
-/// Here template callbacks are used and the async runtime was changed to 
+/// Here template callbacks are used and the async runtime was changed to
 /// tokio as this is the one used by KAD anyway.
 fn async_watcher() -> notify::Result<(PollWatcher, Receiver<notify::Result<Event>>)> {
     let (tx, rx) = channel(1);

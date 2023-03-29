@@ -24,11 +24,11 @@ pub mod containers {
 pub mod fs_watcher;
 
 use clap::Parser;
+use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
+use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
 use glob::glob;
 use std::fs;
 use std::path::PathBuf;
-use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
-use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
 
 type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Channel>;
 
@@ -77,7 +77,11 @@ async fn start(
     Ok(())
 }
 
-pub async fn stop(_client: &mut CmClient, id: &str, timeout: i64) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn stop(
+    _client: &mut CmClient,
+    id: &str,
+    timeout: i64,
+) -> Result<(), Box<dyn std::error::Error>> {
     let stop_options = Some(kanto_cnt::StopOptions {
         timeout,
         force: true,
@@ -92,7 +96,7 @@ pub async fn stop(_client: &mut CmClient, id: &str, timeout: i64) -> Result<(), 
     Ok(())
 }
 
-pub async fn remove(_client: &mut CmClient, id: &str) ->  Result<(), Box<dyn std::error::Error>> {
+pub async fn remove(_client: &mut CmClient, id: &str) -> Result<(), Box<dyn std::error::Error>> {
     let _r = tonic::Request::new(kanto::RemoveContainerRequest {
         id: String::from(id),
         force: true,
@@ -104,7 +108,7 @@ pub async fn remove(_client: &mut CmClient, id: &str) ->  Result<(), Box<dyn std
 async fn create(
     _client: &mut CmClient,
     file_path: &String,
-    recreate: bool
+    recreate: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let container_str = fs::read_to_string(file_path)?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
@@ -183,12 +187,12 @@ async fn redeploy_on_change(e: fs_watcher::Event, mut client: CmClient) {
         if !is_filetype(path, "json") {
             continue;
         }
-        if e.kind.is_create()  || e.kind.is_modify(){
+        if e.kind.is_create() || e.kind.is_modify() {
             let json_path = String::from(path.to_string_lossy());
             if let Err(e) = create(&mut client, &json_path, true).await {
                 log::error!("[CM error] {}", e);
             };
-        } 
+        }
     }
 }
 
@@ -205,9 +209,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let canonical_manifests_path = match std::fs::canonicalize(&cli.manifests_path) {
         Ok(p) => p,
         Err(e) => {
-            log::error!("Could not expand path {:#?}, err: {}", &cli.manifests_path, e);
+            log::error!(
+                "Could not expand path {:#?}, err: {}",
+                &cli.manifests_path,
+                e
+            );
             std::process::exit(-1);
-        },
+        }
     };
     let manifests_path = String::from(canonical_manifests_path.to_string_lossy());
     let mut client = get_client(&socket_path).await?;
@@ -216,11 +224,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     deploy_directory(&manifests_path, &mut client).await?;
 
     if cli.daemon {
-        log::info!("Running in daemon mode. Continuously monitoring {:#?}", manifests_path);
-        fs_watcher::async_watch(&manifests_path, enclose::enclose!((client)|e| async move {
-            redeploy_on_change(e, client).await
-        })).await?
-    } 
-    
+        log::info!(
+            "Running in daemon mode. Continuously monitoring {:#?}",
+            manifests_path
+        );
+        fs_watcher::async_watch(
+            &manifests_path,
+            enclose::enclose!((client) | e | async move { redeploy_on_change(e, client).await }),
+        )
+        .await?
+    }
+
     Ok(())
 }
