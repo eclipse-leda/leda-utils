@@ -11,7 +11,6 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 pub mod manifest_parser;
-use fs_watcher::is_filetype;
 #[cfg(unix)]
 use tokio::net::UnixStream;
 use tonic::transport::{Endpoint, Uri};
@@ -21,7 +20,11 @@ pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
 }
+
+#[cfg(feature = "filewatcher")]
 pub mod fs_watcher;
+#[cfg(feature = "filewatcher")]
+use fs_watcher::is_filetype;
 
 use clap::Parser;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
@@ -50,6 +53,7 @@ struct CliArgs {
 
     /// Run as a daemon that continuously monitors the provided path for changes
     #[clap(long, short, action, default_value_t = false)]
+    #[cfg(feature = "filewatcher")]
     daemon: bool,
 }
 
@@ -182,6 +186,7 @@ async fn deploy_directory(
     Ok(())
 }
 
+#[cfg(feature = "filewatcher")]
 async fn redeploy_on_change(e: fs_watcher::Event, mut client: CmClient) {
     for path in &e.paths {
         if !is_filetype(path, "json") {
@@ -223,6 +228,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Running initial deployment of {:#?}", manifests_path);
     deploy_directory(&manifests_path, &mut client).await?;
 
+    #[cfg(feature = "filewatcher")]
     if cli.daemon {
         log::info!(
             "Running in daemon mode. Continuously monitoring {:#?}",

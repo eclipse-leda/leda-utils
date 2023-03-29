@@ -31,9 +31,9 @@ anyhow = "1.0.69"
 json-patch = "0.3.0"
 log = "0.4.0"
 env_logger = "0.9.3"
-notify = "5.1.0"
+notify = { version = "5.1.0", optional = true }
 clap = { version = "3.2.23", features = ["derive"] }
-enclose = "1.1.8"
+enclose = { version = "1.1.8", optional = true }
 
 [build-dependencies]
 tonic-build = "0.7.2"
@@ -41,6 +41,10 @@ tonic-build = "0.7.2"
 [[bin]]
 name = "kanto-auto-deployer"
 path = "src/main.rs"
+
+[features]
+default = ["filewatcher"]
+filewatcher = ["notify", "enclose"]
 
 [profile.release]
 lto = true
