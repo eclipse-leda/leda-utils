@@ -20,19 +20,56 @@ pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
 }
+
+#[cfg(feature = "filewatcher")]
+pub mod fs_watcher;
+#[cfg(feature = "filewatcher")]
+use fs_watcher::is_filetype;
+
+use clap::Parser;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
 use glob::glob;
-use std::env;
 use std::fs;
+use std::path::PathBuf;
 
-fn print_usage() {
-    println!("USAGE:");
-    println!("  kanto-auto-deployer [PATH TO MANIFESTS FOLDER]")
+type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Channel>;
+
+#[derive(Parser, Debug)]
+#[clap(version, about)]
+struct CliArgs {
+    /// Set the path to the directory containing the manifests
+    #[clap(default_value = ".")]
+    manifests_path: PathBuf,
+
+    /// Set the path to the Kanto Container Management API socket
+    #[clap(
+        long,
+        short,
+        action,
+        default_value = "/run/container-management/container-management.sock"
+    )]
+    socket_cm: PathBuf,
+
+    /// Run as a daemon that continuously monitors the provided path for changes
+    #[clap(long, short, action, default_value_t = false)]
+    #[cfg(feature = "filewatcher")]
+    daemon: bool,
+}
+
+async fn get_client(socket_path: &str) -> Result<CmClient, Box<dyn std::error::Error>> {
+    let socket_path = PathBuf::from(socket_path);
+    let channel = Endpoint::try_from("http://[::]:50051")?
+        .connect_with_connector(service_fn(move |_: Uri| {
+            UnixStream::connect(socket_path.clone())
+        }))
+        .await?;
+    let client = kanto::containers_client::ContainersClient::new(channel);
+    Ok(client)
 }
 
 async fn start(
-    _client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>,
+    _client: &mut CmClient,
     name: &String,
     _id: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -44,9 +81,38 @@ async fn start(
     Ok(())
 }
 
+pub async fn stop(
+    _client: &mut CmClient,
+    id: &str,
+    timeout: i64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let stop_options = Some(kanto_cnt::StopOptions {
+        timeout,
+        force: true,
+        signal: String::from("SIGTERM"),
+    });
+
+    let _r = tonic::Request::new(kanto::StopContainerRequest {
+        id: String::from(id),
+        stop_options,
+    });
+    let _r = _client.stop(_r).await?;
+    Ok(())
+}
+
+pub async fn remove(_client: &mut CmClient, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let _r = tonic::Request::new(kanto::RemoveContainerRequest {
+        id: String::from(id),
+        force: true,
+    });
+    let _r = _client.remove(_r).await?;
+    Ok(())
+}
+
 async fn create(
-    _client: &mut kanto::containers_client::ContainersClient<tonic::transport::Channel>,
+    _client: &mut CmClient,
     file_path: &String,
+    recreate: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let container_str = fs::read_to_string(file_path)?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
@@ -58,7 +124,14 @@ async fn create(
         for cont in &containers.containers {
             if cont.name == name {
                 log::info!("Already exists [{}]", name);
-                return Ok(());
+                if !recreate {
+                    log::debug!("Skipping {name}");
+                    return Ok(());
+                }
+                log::debug!("Stopping [{name}]");
+                stop(_client, &cont.id, 1).await?;
+                log::info!("Removing [{name}]");
+                remove(_client, &cont.id).await?;
             }
         }
         log::info!("Creating [{}]", name);
@@ -79,38 +152,20 @@ async fn create(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
-    );
-
-    let args: Vec<String> = env::args().collect();
-    let mut file_path = String::new();
+async fn deploy_directory(
+    directory_path: &str,
+    client: &mut CmClient,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut file_path = String::from(directory_path);
     let mut path = String::new();
-    if args.len() == 2 {
-        file_path.push_str(&args[1]);
-        if file_path.eq("--help") || file_path.eq("-h") {
-            print_usage();
-            return Ok(());
-        }
-        path.push_str(&file_path.clone());
-    } else {
-        file_path.push_str(".");
-        path.push_str(&file_path.clone());
-    }
+
+    path.push_str(&file_path.clone());
     file_path.push_str("/*.json");
 
-    let socket_path = "/run/container-management/container-management.sock";
-    //The uri is ignored and a UDS connection is established instead.
-    let channel = Endpoint::try_from("http://[::]:50051")?
-        .connect_with_connector(service_fn(move |_: Uri| UnixStream::connect(socket_path)))
-        .await?;
-
-    // Get the client
-    let mut client = kanto::containers_client::ContainersClient::new(channel);
     let mut b_found = false;
+
     log::info!("Reading manifests from [{}]", path);
+
     let mut full_name = String::new();
     for entry in glob(&file_path).expect("Failed to parse glob pattern") {
         let name = entry
@@ -119,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string();
         full_name.push_str(&name);
         b_found = true;
-        match create(&mut client, &full_name).await {
+        match create(client, &full_name, false).await {
             Ok(_) => {}
             Err(e) => log::error!("[CM error] Failed to create container: {}", e),
         };
@@ -127,7 +182,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !b_found {
         log::error!("No manifests are found in [{}]", path);
-        print_usage();
     }
+    Ok(())
+}
+
+#[cfg(feature = "filewatcher")]
+async fn redeploy_on_change(e: fs_watcher::Event, mut client: CmClient) {
+    for path in &e.paths {
+        if !is_filetype(path, "json") {
+            continue;
+        }
+        if e.kind.is_create() || e.kind.is_modify() {
+            let json_path = String::from(path.to_string_lossy());
+            if let Err(e) = create(&mut client, &json_path, true).await {
+                log::error!("[CM error] {}", e);
+            };
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+    );
+
+    let cli = CliArgs::parse();
+    log::debug!("{:#?}", cli);
+
+    let socket_path = String::from(cli.socket_cm.to_string_lossy());
+    let canonical_manifests_path = match std::fs::canonicalize(&cli.manifests_path) {
+        Ok(p) => p,
+        Err(e) => {
+            log::error!(
+                "Could not expand path {:#?}, err: {}",
+                &cli.manifests_path,
+                e
+            );
+            std::process::exit(-1);
+        }
+    };
+    let manifests_path = String::from(canonical_manifests_path.to_string_lossy());
+    let mut client = get_client(&socket_path).await?;
+
+    log::info!("Running initial deployment of {:#?}", manifests_path);
+    deploy_directory(&manifests_path, &mut client).await?;
+
+    #[cfg(feature = "filewatcher")]
+    if cli.daemon {
+        log::info!(
+            "Running in daemon mode. Continuously monitoring {:#?}",
+            manifests_path
+        );
+        fs_watcher::async_watch(
+            &manifests_path,
+            enclose::enclose!((client) | e | async move { redeploy_on_change(e, client).await }),
+        )
+        .await?
+    }
+
     Ok(())
 }
