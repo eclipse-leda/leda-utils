@@ -15,6 +15,7 @@ use clap::Parser;
 use config::Config;
 use cursive::event;
 use serde::de;
+use serde::Serialize;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -56,6 +57,25 @@ pub struct KbdEvent {
 impl Into<event::Event> for KbdEvent {
     fn into(self) -> event::Event {
         self.event
+    }
+}
+
+impl ToString for KbdEvent {
+    fn to_string(&self) -> String {
+        match self.event {
+            event::Event::Char(c) => String::from(c),
+            event::Event::CtrlChar(c) => format!("{CTRL_REPR}{c}"),
+            event::Event::AltChar(c) => format!("{ALT_REPR}{c}"),
+            _ => String::from("Invalid key binding")
+        }
+    }
+}
+
+impl Serialize for KbdEvent {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        serializer.serialize_str(&self.to_string())
     }
 }
 
