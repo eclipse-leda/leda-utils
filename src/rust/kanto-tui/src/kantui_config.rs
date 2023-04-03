@@ -13,8 +13,13 @@
 use super::Result;
 use clap::Parser;
 use config::Config;
+use cursive::event;
+use serde::de;
 use serde::Deserialize;
 use std::path::PathBuf;
+
+const CTRL_REPR: char = '^';
+const ALT_REPR: char = '@';
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -36,25 +41,64 @@ pub struct AppConfig {
     pub keyconfig: KeyConfig,
 }
 
+#[derive(Debug, Clone)]
+pub struct KbdEvent {
+    event: event::Event,
+}
+
+impl Into<cursive::event::Event> for KbdEvent {
+    fn into(self) -> event::Event {
+        self.event
+    }
+}
+
+impl<'de> Deserialize<'de> for KbdEvent {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        let s: Vec<char> = String::deserialize(deserializer)?
+            .chars()
+            .filter(|c| c.is_ascii() && !c.is_whitespace())
+            .collect();
+
+        let first_char = s.get(0).ok_or(de::Error::custom(
+            "No first character specified for key binding",
+        ))?;
+
+        let event = match *first_char {
+            CTRL_REPR => event::Event::CtrlChar(*s.get(1).ok_or(de::Error::custom(
+                format!("No second character specified for key binding after {CTRL_REPR}"),
+            ))?),
+            ALT_REPR => event::Event::AltChar(*s.get(1).ok_or(de::Error::custom(
+                format!("No second character specified for key binding after {ALT_REPR}"),
+            ))?),
+            _ => event::Event::Char(*first_char),
+        };
+
+        Ok(KbdEvent { event })
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct KeyConfig {
     pub start_btn_name: String,
-    pub start_kbd_key: char,
+    pub start_kbd_key: KbdEvent,
 
     pub stop_btn_name: String,
-    pub stop_kbd_key: char,
+    pub stop_kbd_key: KbdEvent,
 
     pub remove_btn_name: String,
-    pub remove_kbd_key: char,
+    pub remove_kbd_key: KbdEvent,
 
     pub logs_btn_name: String,
-    pub logs_kbd_key: char,
+    pub logs_kbd_key: KbdEvent,
 
     pub quit_btn_name: String,
-    pub quit_kbd_key: char,
+    pub quit_kbd_key: KbdEvent,
 
     pub redeploy_btn_name: String,
-    pub redeploy_kbd_key: char,
+    pub redeploy_kbd_key: KbdEvent,
     pub redeploy_command: String,
 }
 
