@@ -41,12 +41,19 @@ pub struct AppConfig {
     pub keyconfig: KeyConfig,
 }
 
+// Since cursive treats Ctrl+Char, Alt+Char and Char as different variants 
+// of an enum that is not directly serializable, and we want to hide as much 
+// implementation details from the config file, a custom KbdEvent wrapper struct
+// is implemented. 
+// It can be easily converted to the cursive event type
+// and it implements custom from-string deserialization logic that handles the 
+// above mentioned use-cases.
 #[derive(Debug, Clone)]
 pub struct KbdEvent {
     event: event::Event,
 }
 
-impl Into<cursive::event::Event> for KbdEvent {
+impl Into<event::Event> for KbdEvent {
     fn into(self) -> event::Event {
         self.event
     }

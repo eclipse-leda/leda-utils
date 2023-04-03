@@ -3,7 +3,6 @@ socket_path = "/run/container-management/container-management.sock" # Path to ka
 stop_timeout = 5 # timeout (integer) in seconds before a SIGKILL is sent after a SIGTERM
 
 [keyconfig]
-
 # Set button names and keyboard shortcuts
 # Supports ctrl + key and alt+key combinations
 # Example: string => key combination
@@ -27,7 +26,9 @@ quit_kbd_key = "^q"
 
 redeploy_btn_name = "Re[D]eploy"
 redeploy_kbd_key = "d"
+
 # Includes a shell lexer so anything that would be a valid shell command can be used
 # No pipes/redirects allowed.
 # N.B.: Command inherits kantui's privileges (root)
+# N.B.: For longer commands use sh -c <cmd>
 redeploy_command = "systemctl restart kanto-auto-deployer.service"
