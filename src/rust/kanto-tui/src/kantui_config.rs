@@ -20,8 +20,8 @@ use serde::Deserialize;
 use std::fmt::Display;
 use std::path::PathBuf;
 
-const CTRL_REPR: char = '^';
-const ALT_REPR: char = '@';
+pub const CTRL_REPR: char = '^';
+pub const ALT_REPR: char = '@';
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -122,6 +122,9 @@ pub struct KeyConfig {
 
     pub logs_btn_name: String,
     pub logs_kbd_key: KbdEvent,
+
+    pub help_btn_name: String,
+    pub help_kbd_key: KbdEvent,
 
     pub quit_btn_name: String,
     pub quit_kbd_key: KbdEvent,

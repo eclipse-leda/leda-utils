@@ -21,11 +21,14 @@ remove_kbd_key = "r"
 logs_btn_name = "[L]ogs"
 logs_kbd_key = "l"
 
-quit_btn_name = "[Q]uit"
+quit_btn_name = "^[Q]uit"
 quit_kbd_key = "^q"
 
 redeploy_btn_name = "Re[D]eploy"
 redeploy_kbd_key = "d"
+
+help_btn_name = "[H]elp"
+help_kbd_key = "h"
 
 # Includes a shell lexer so anything that would be a valid shell command can be used
 # No pipes/redirects allowed.
