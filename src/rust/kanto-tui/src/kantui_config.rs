@@ -17,6 +17,7 @@ use cursive::event;
 use serde::de;
 use serde::Serialize;
 use serde::Deserialize;
+use std::fmt::Display;
 use std::path::PathBuf;
 
 const CTRL_REPR: char = '^';
@@ -60,15 +61,16 @@ impl Into<event::Event> for KbdEvent {
     }
 }
 
-impl ToString for KbdEvent {
-    fn to_string(&self) -> String {
-        match self.event {
+impl Display for KbdEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str_repr = match self.event {
             event::Event::Char(c) => String::from(c),
             event::Event::CtrlChar(c) => format!("{CTRL_REPR}{c}"),
             event::Event::AltChar(c) => format!("{ALT_REPR}{c}"),
-            _ => String::from("Invalid key binding")
-        }
-    }
+            _ => String::new()
+        };
+        write!(f, "{}", str_repr)
+    }   
 }
 
 impl Serialize for KbdEvent {
