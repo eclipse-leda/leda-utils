@@ -44,7 +44,7 @@ cursive_table_view = "0.13.3"
 nix = { version = "0.26.1", default-features = false, features = ["user"] }
 enclose = "1.1.8"
 clap = { version = "3.2.23", features = ["derive"] }
-config = { version = "0.13.3", default-features = false }
+config = { version = "0.13.3", default-features = false, features = ["toml"]}
 strip-ansi-escapes = "0.1.1"
 shlex = "1.1.0"
 async-priority-channel = "0.1.0"
