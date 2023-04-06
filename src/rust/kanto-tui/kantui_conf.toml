@@ -24,8 +24,11 @@ logs_kbd_key = "l"
 quit_btn_name = "^[Q]uit"
 quit_kbd_key = "^q"
 
-redeploy_btn_name = "Re[D]eploy"
-redeploy_kbd_key = "d"
+redeploy_btn_name = "^[D]eploy"
+redeploy_kbd_key = "^d"
+
+describe_btn_name = "[D]escribe"
+describe_kbd_key = "d"
 
 help_btn_name = "[H]elp"
 help_kbd_key = "h"
