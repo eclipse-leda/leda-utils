@@ -1,9 +1,6 @@
 use super::{
+    cm_rpc, kanto_api, kantui_config, try_best, KantoRequest, KantoResponse, RequestPriority,
     Result,
-    kanto_api,
-    try_best, KantoRequest, KantoResponse, RequestPriority,
-    kantui_config,
-    cm_rpc
 };
 use async_priority_channel::{Receiver, Sender};
 
@@ -13,7 +10,7 @@ async fn process_request(
     response_tx: &Sender<KantoResponse, RequestPriority>,
     config: &kantui_config::AppConfig,
 ) -> Result<()> {
-   match request {
+    match request {
         KantoRequest::ListContainers => {
             let r = kanto_api::list_containers(c).await?;
             try_best(
@@ -47,6 +44,17 @@ async fn process_request(
         }
         KantoRequest::Redeploy => {
             try_best(kanto_api::redeploy_containers(&config.keyconfig.redeploy_command).await);
+        }
+        KantoRequest::GetFullContainerState(id) => {
+            let ctr = kanto_api::get_container_by_id(c, &id).await?;
+            try_best(
+                response_tx
+                    .send(
+                        KantoResponse::GetFullContainerState(ctr),
+                        RequestPriority::Normal,
+                    )
+                    .await,
+            );
         }
     }
     Ok(())

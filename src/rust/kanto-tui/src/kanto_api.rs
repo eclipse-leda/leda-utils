@@ -10,6 +10,7 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
+use anyhow::anyhow;
 #[cfg(unix)]
 use std::path::Path;
 use strip_ansi_escapes::strip;
@@ -21,7 +22,7 @@ use tokio::{
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
-use super::{cm_rpc,cm_types, ClientChannel, Result};
+use super::{cm_rpc, cm_types, ClientChannel, Result};
 
 const CONT_TEMPLATE: &'static str = include_str!("container_json_template.in");
 
@@ -55,13 +56,20 @@ pub async fn create_container(
     Ok(_response.into_inner())
 }
 
-pub async fn get_container_by_name(channel: &mut ClientChannel, name: &str) -> Result<cm_types::Container> {
-    let all_containers = list_containers(channel).await?;
-    let cont = all_containers
-        .into_iter()
-        .find(|c| c.name == name)
-        .ok_or("Container not found")?;
+pub async fn get_container_by_id(
+    channel: &mut ClientChannel,
+    id: &str,
+) -> Result<cm_types::Container> {
+    let _r = tonic::Request::new(cm_rpc::GetContainerRequest {
+        id: String::from(id),
+    });
 
+    let cont = channel
+        .get(_r)
+        .await?
+        .into_inner()
+        .container
+        .ok_or(anyhow!("No container with {id} found"))?;
     Ok(cont)
 }
 
@@ -102,11 +110,14 @@ pub async fn redeploy_containers(redeploy_command: &str) -> Result<()> {
     let shell_words = lex.by_ref().collect::<Vec<_>>();
 
     if lex.had_error {
-        return Err(Box::new(config::ConfigError::Message(String::from(
-            "Failed parsing redeploy command",
-        ))));
+        return Err(Box::from(anyhow!("Failed parsing redeploy command")));
     }
-    tokio::process::Command::new(&shell_words[0]).args(&shell_words[1..]).spawn()?.wait().await?;
+
+    tokio::process::Command::new(&shell_words[0])
+        .args(&shell_words[1..])
+        .spawn()?
+        .wait()
+        .await?;
     Ok(())
 }
 

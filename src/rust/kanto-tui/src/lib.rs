@@ -10,9 +10,9 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
+pub mod io;
 pub mod kanto_api;
 pub mod kantui_config;
-pub mod io;
 pub mod ui;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -24,7 +24,6 @@ mod containers {
 }
 pub use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as cm_rpc;
 pub use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as cm_types;
-
 
 pub fn try_best<T>(err: T) {
     // Used to consume Err variants where they can be safely ignored.
@@ -42,6 +41,7 @@ pub enum KantoRequest {
     StopContainer(String, i64),       // ID, timeout
     RemoveContainer(String),          // ID
     GetLogs(String),                  // ID
+    GetFullContainerState(String),    // ID
     Redeploy,
 }
 
@@ -49,6 +49,7 @@ pub enum KantoRequest {
 pub enum KantoResponse {
     ListContainers(Vec<cm_types::Container>),
     GetLogs(String),
+    GetFullContainerState(cm_types::Container),
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Debug)]

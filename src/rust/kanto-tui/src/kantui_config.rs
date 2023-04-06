@@ -15,8 +15,8 @@ use clap::Parser;
 use config::Config;
 use cursive::event;
 use serde::de;
-use serde::Serialize;
 use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Display;
 use std::path::PathBuf;
 
@@ -43,12 +43,12 @@ pub struct AppConfig {
     pub keyconfig: KeyConfig,
 }
 
-// Since cursive treats Ctrl+Char, Alt+Char and Char as different variants 
-// of an enum that is not directly serializable, and we want to hide as much 
+// Since cursive treats Ctrl+Char, Alt+Char and Char as different variants
+// of an enum that is not directly serializable, and we want to hide as much
 // implementation details from the config file, a custom KbdEvent wrapper struct
-// is implemented. 
+// is implemented.
 // It can be easily converted to the cursive event type
-// and it implements custom from-string deserialization logic that handles the 
+// and it implements custom from-string deserialization logic that handles the
 // above mentioned use-cases.
 #[derive(Debug, Clone)]
 pub struct KbdEvent {
@@ -67,16 +67,17 @@ impl Display for KbdEvent {
             event::Event::Char(c) => String::from(c),
             event::Event::CtrlChar(c) => format!("{CTRL_REPR}{c}"),
             event::Event::AltChar(c) => format!("{ALT_REPR}{c}"),
-            _ => String::new()
+            _ => String::new(),
         };
         write!(f, "{}", str_repr)
-    }   
+    }
 }
 
 impl Serialize for KbdEvent {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
-        S: serde::Serializer {
+        S: serde::Serializer,
+    {
         serializer.serialize_str(&self.to_string())
     }
 }
@@ -96,12 +97,12 @@ impl<'de> Deserialize<'de> for KbdEvent {
         ))?;
 
         let event = match *first_char {
-            CTRL_REPR => event::Event::CtrlChar(*s.get(1).ok_or(de::Error::custom(
-                format!("No second character specified for key binding after {CTRL_REPR}"),
-            ))?),
-            ALT_REPR => event::Event::AltChar(*s.get(1).ok_or(de::Error::custom(
-                format!("No second character specified for key binding after {ALT_REPR}"),
-            ))?),
+            CTRL_REPR => event::Event::CtrlChar(*s.get(1).ok_or(de::Error::custom(format!(
+                "No second character specified for key binding after {CTRL_REPR}"
+            )))?),
+            ALT_REPR => event::Event::AltChar(*s.get(1).ok_or(de::Error::custom(format!(
+                "No second character specified for key binding after {ALT_REPR}"
+            )))?),
             _ => event::Event::Char(*first_char),
         };
 
@@ -128,6 +129,9 @@ pub struct KeyConfig {
 
     pub quit_btn_name: String,
     pub quit_kbd_key: KbdEvent,
+
+    pub describe_btn_name: String,
+    pub describe_kbd_key: KbdEvent,
 
     pub redeploy_btn_name: String,
     pub redeploy_kbd_key: KbdEvent,

@@ -49,6 +49,7 @@ strip-ansi-escapes = "0.1.1"
 shlex = "1.1.0"
 async-priority-channel = "0.1.0"
 cursive_buffered_backend = "0.5.0"
+anyhow = "1.0.0"
 
 [dependencies.cursive]
 default-features = false

@@ -786,6 +786,7 @@ dependencies = [
 name = "kantui"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "async-priority-channel",
  "clap",
  "config",

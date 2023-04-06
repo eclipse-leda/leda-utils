@@ -10,7 +10,7 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
-use crate::{Result, cm_types, try_best};
+use crate::{cm_types, try_best, Result};
 use cursive::align::HAlign;
 use cursive::view::Scrollable;
 use cursive::views::{Dialog, OnEventView, TextView};
@@ -75,7 +75,7 @@ pub fn items_to_columns(req_items: Vec<cm_types::Container>) -> Vec<ContainersTa
         out.push(ContainersTable {
             id: c.id,
             name: c.name,
-            image: c.image.expect("Missing field").name,
+            image: c.image.map_or("N/A".to_string(), |image| image.name),
             state: state_to_string(&c.state),
         });
     }
@@ -135,8 +135,8 @@ pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
         .scrollable();
 
     logs_view.set_scroll_strategy(cursive::view::ScrollStrategy::StickToBottom);
-    let logs_events_handler = OnEventView::new(logs_view)
-    .on_event(Esc, |s| try_best(s.pop_layer()));
+    let logs_events_handler =
+        OnEventView::new(logs_view).on_event(Esc, |s| try_best(s.pop_layer()));
 
     siv.add_layer(logs_events_handler);
 }
