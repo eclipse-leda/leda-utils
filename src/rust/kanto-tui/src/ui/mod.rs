@@ -14,7 +14,7 @@ use containers_table_view as table;
 
 fn host_config_description(host_config: &cm_types::HostConfig) -> String {
     format!(
-    r"Network mode: {}
+        r"Network mode: {}
     Port Mappings: {:#?}
     Privileged: {},
     Devices: {:#?}",
@@ -179,7 +179,10 @@ pub fn run(
             .button(config.keyconfig.redeploy_btn_name, redeploy_cb.clone())
             .button(config.keyconfig.describe_btn_name, describe_cb.clone())
             .button(config.keyconfig.help_btn_name, help_cb.clone())
-            .button(config.keyconfig.quit_btn_name, |s| s.quit()),
+            .button(config.keyconfig.quit_btn_name, |s| s.quit())
+            .scrollable()
+            .scroll_x(true)
+            .scroll_y(true),
     );
     // Add keyboard shortcuts
     siv.add_global_callback(config.keyconfig.start_kbd_key, start_cb.clone());
