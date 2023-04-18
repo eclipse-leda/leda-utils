@@ -14,7 +14,7 @@
 
 docker build --quiet --tag leda-utils-tests -f src/tests/Dockerfile.shellscripts src/
 docker network create --subnet=172.18.0.0/16 ledatestnet
-docker run --rm -it --net ledatestnet --ip 172.18.0.2 leda-utils-tests
+docker run --rm -t --net ledatestnet --ip 172.18.0.2 leda-utils-tests
 RC=$?
 docker network rm ledatestnet
 
