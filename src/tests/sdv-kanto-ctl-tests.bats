@@ -22,7 +22,7 @@ setup() {
 
 @test "SDV-KANTO-CTL should modify Kanto Config" {
     CONFIG_FILE="/etc/container-management/config.json"
-    mkdir -p $(dirname ${CONFIG_FILE})
+    mkdir -p "$(dirname ${CONFIG_FILE})"
     echo "{}" > ${CONFIG_FILE} 
     assert_file_exist ${CONFIG_FILE} 
 
