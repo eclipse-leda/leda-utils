@@ -20,6 +20,7 @@ on:
   push:
     paths:
       - 'src/sh/**'
+      - 'src/tests/**'
 
 jobs:
   build:
