@@ -41,7 +41,7 @@ pub fn run(
 
     let get_logs_cb = enclose::enclose!((tx_requests) move |s: &mut Cursive| {
         if let Some(c) = table::get_current_container(s) {
-            try_best(tx_requests.try_send(KantoRequest::GetLogs(c.id.clone()), RequestPriority::Normal));
+            try_best(tx_requests.try_send(KantoRequest::GetLogs(c.id.clone(), config.log_tail_lines as i32), RequestPriority::Normal));
         }
     });
 

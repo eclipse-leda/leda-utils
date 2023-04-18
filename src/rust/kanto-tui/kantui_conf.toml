@@ -1,6 +1,7 @@
 # General Configuration Options
 socket_path = "/run/container-management/container-management.sock" # Path to kanto-cm unix socket
 stop_timeout = 5 # timeout (integer) in seconds before a SIGKILL is sent after a SIGTERM
+log_tail_lines = 15
 
 [keyconfig]
 # Set button names and keyboard shortcuts

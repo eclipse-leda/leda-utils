@@ -161,7 +161,6 @@ pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
     siv.add_layer(logs_events_handler);
 }
 
-
 fn host_config_description(host_config: &cm_types::HostConfig) -> String {
     format!(
         r"Network mode: {}

@@ -40,7 +40,7 @@ pub enum KantoRequest {
     StartContainer(String),           // ID
     StopContainer(String, i64),       // ID, timeout
     RemoveContainer(String),          // ID
-    GetLogs(String),                  // ID
+    GetLogs(String, i32),             // ID, tail
     GetFullContainerState(String),    // ID
     Redeploy,
 }

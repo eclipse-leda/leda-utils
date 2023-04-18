@@ -12,13 +12,8 @@
 // ********************************************************************************/
 use anyhow::anyhow;
 #[cfg(unix)]
-use std::path::Path;
 use strip_ansi_escapes::strip;
 use tokio::net::UnixStream;
-use tokio::{
-    fs::File,
-    io::{AsyncBufReadExt, BufReader},
-};
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
@@ -134,23 +129,16 @@ fn strip_and_push(line: &KantoLogLine, log: &mut String) {
     log.push_str(String::from_utf8_lossy(&stripped).as_ref());
 }
 
-// Warning! This function currently uses system paths since the author is not aware of a way to obtains logs via grpc from CM.
-// This should be considered an unstable feature since the paths used bellow are not guaranteed to be the same as well.
-// Speed can also be a concern as a lot of parsing and stripping of control characters is required.
-pub async fn get_container_logs(id: &str) -> Result<String> {
-    let log_path = Path::new("/var/lib/container-management/containers/")
-        .join(id)
-        .join("json.log");
-    let file_handle = File::open(log_path).await?;
-    let mut lines = BufReader::new(file_handle).lines();
-
-    let mut parsed_log = String::from("");
-    while let Some(line) = lines.next_line().await? {
-        let parsed_line = serde_json::from_str(&line);
-        if let Ok(line_json) = parsed_line {
-            strip_and_push(&line_json, &mut parsed_log);
-        }
+pub async fn get_logs(channel: &mut ClientChannel, id: &str, tail: i32) -> Result<String> {
+    let _r = tonic::Request::new(cm_rpc::GetLogsRequest {
+        id: String::from(id),
+        tail: tail as i32,
+    });
+    let mut _r = channel.logs(_r).await?.into_inner();
+    let mut log = String::new();
+    while let Some(msg) = _r.message().await? {
+        let parsed_line = serde_json::from_str(&msg.log)?;
+        strip_and_push(&parsed_line, &mut log);
     }
-
-    Ok(parsed_log)
+    Ok(log)
 }

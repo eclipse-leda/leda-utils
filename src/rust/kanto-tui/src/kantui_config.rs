@@ -40,6 +40,7 @@ struct CliArgs {
 pub struct AppConfig {
     pub socket_path: String,
     pub stop_timeout: u8,
+    pub log_tail_lines: u32,
     pub keyconfig: KeyConfig,
 }
 

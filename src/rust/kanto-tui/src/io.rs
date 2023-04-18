@@ -31,10 +31,10 @@ async fn process_request(
         KantoRequest::RemoveContainer(id) => {
             try_best(kanto_api::remove_container(c, &id, true).await);
         }
-        KantoRequest::GetLogs(id) => {
-            let logs = match kanto_api::get_container_logs(&id).await {
-                Ok(logs) => logs,
-                Err(_) => "Could not obtain logs".to_string(),
+        KantoRequest::GetLogs(id, tail) => {
+            let logs = match kanto_api::get_logs(c, &id, tail).await {
+                Ok(log) => log,
+                Err(e) => format!("Could not get logs: {e}"),
             };
             try_best(
                 response_tx
