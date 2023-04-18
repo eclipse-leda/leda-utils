@@ -12,4 +12,4 @@
 # * SPDX-License-Identifier: Apache-2.0
 # ********************************************************************************/
 
-find src/ | xargs file | grep "shell script" | cut -d':' -f1 | xargs shellcheck
+find src/ -print0 -type f | xargs -0 file | grep "shell script" | cut -d':' -f1 | xargs shellcheck
