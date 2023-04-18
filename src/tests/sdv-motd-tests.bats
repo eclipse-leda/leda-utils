@@ -79,5 +79,3 @@ parse_output_of_ip_addr_show() {
     run parse_output_of_ip_addr_show
     assert_output '172.18.0.2'
 }
-
-
