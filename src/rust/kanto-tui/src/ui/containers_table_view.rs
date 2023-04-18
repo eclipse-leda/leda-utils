@@ -10,6 +10,7 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************/
+use crate::kantui_config::{AppConfig, ALT_REPR, CTRL_REPR};
 use crate::{cm_types, try_best, Result};
 use cursive::align::HAlign;
 use cursive::view::Scrollable;
@@ -126,21 +127,6 @@ pub fn get_current_container(s: &mut cursive::Cursive) -> Option<ContainersTable
     None
 }
 
-pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
-    use cursive::event::Key::Esc;
-
-    let mut logs_view = Dialog::around(TextView::new(logs))
-        .title("Container Logs")
-        .button("Ok (Esc)", |s| try_best(s.pop_layer()))
-        .scrollable();
-
-    logs_view.set_scroll_strategy(cursive::view::ScrollStrategy::StickToBottom);
-    let logs_events_handler =
-        OnEventView::new(logs_view).on_event(Esc, |s| try_best(s.pop_layer()));
-
-    siv.add_layer(logs_events_handler);
-}
-
 pub fn set_cursive_theme(siv: &mut cursive::CursiveRunnable) {
     siv.set_theme(cursive::theme::Theme {
         shadow: true,
@@ -158,6 +144,132 @@ pub fn set_cursive_theme(siv: &mut cursive::CursiveRunnable) {
             palette[Highlight] = Blue.dark();
         }),
     });
+}
+
+pub fn show_logs_view(siv: &mut cursive::Cursive, logs: String) {
+    use cursive::event::Key::Esc;
+
+    let mut logs_view = Dialog::around(TextView::new(logs))
+        .title("Container Logs")
+        .button("Ok (Esc)", |s| try_best(s.pop_layer()))
+        .scrollable();
+
+    logs_view.set_scroll_strategy(cursive::view::ScrollStrategy::StickToBottom);
+    let logs_events_handler =
+        OnEventView::new(logs_view).on_event(Esc, |s| try_best(s.pop_layer()));
+
+    siv.add_layer(logs_events_handler);
+}
+
+
+fn host_config_description(host_config: &cm_types::HostConfig) -> String {
+    format!(
+        r"Network mode: {}
+    Port Mappings: {:#?}
+    Privileged: {},
+    Devices: {:#?}",
+        host_config.network_mode,
+        host_config.port_mappings,
+        host_config.privileged,
+        host_config.devices
+    )
+}
+
+pub fn describe_screen(siv: &mut cursive::Cursive, c: cm_types::Container) {
+    use cursive::event::Key::Esc;
+    let cnt_description = format!(
+        r"
+    General
+    ========================
+    ID: {}
+    Name: {}
+    Container hostname: {}
+    Image: {}
+    State: {}
+
+    Host Config
+    ========================
+    {}
+
+    Other
+    =======================
+    Mounts: {:#?}
+    ",
+        c.id,
+        c.name,
+        c.host_name,
+        c.image.map_or("N/A".to_string(), |image| image.name),
+        c.state.map_or("N/A".to_string(), |state| format!(
+            "{} (Exit code: {})",
+            state.status, state.exit_code
+        )),
+        c.host_config
+            .map_or("N/A".to_string(), |config| host_config_description(&config)),
+        c.mounts
+    );
+
+    let describe_view = Dialog::around(TextView::new(cnt_description))
+        .title("Container Description")
+        .button("Ok (Esc)", |s| try_best(s.pop_layer()))
+        .scrollable();
+
+    let describe_events_handler =
+        OnEventView::new(describe_view).on_event(Esc, |s| try_best(s.pop_layer()));
+
+    siv.add_layer(describe_events_handler);
+}
+
+pub fn help_screen(siv: &mut cursive::Cursive, config: AppConfig) {
+    use cursive::event::Key::Esc;
+    let help_string = format!(
+        r"
+    You can use either the arrow keys/Tab/Enter (keyboard) 
+    or the mouse (if your terminal supports mouse events) 
+    to select a container from the list.
+
+    UI Button/Keyboard Shortcut => Function
+    ==================================================
+    {}/{} => To Start the currently selected container
+    {}/{} => To Stop the currently selected container
+    {}/{} => To Remove the currently selected container
+    {}/{} => To Get Logs for the currently selected container
+    {}/{} => To Redeploy all container manifests
+    {}/{} => To Display this help screen
+    {}/{} => To Exit Kantui
+    ==================================================
+
+    Legend:
+    ============================
+    {CTRL_REPR}<key> = Ctrl+<key>
+    {ALT_REPR}<key> = Alt+<key>
+    ",
+        config.keyconfig.start_btn_name,
+        config.keyconfig.start_kbd_key,
+        config.keyconfig.stop_btn_name,
+        config.keyconfig.stop_kbd_key,
+        config.keyconfig.remove_btn_name,
+        config.keyconfig.remove_kbd_key,
+        config.keyconfig.logs_btn_name,
+        config.keyconfig.logs_kbd_key,
+        config.keyconfig.redeploy_btn_name,
+        config.keyconfig.redeploy_kbd_key,
+        config.keyconfig.help_btn_name,
+        config.keyconfig.help_kbd_key,
+        config.keyconfig.quit_btn_name,
+        config.keyconfig.quit_kbd_key
+    );
+
+    let help_view = Dialog::around(TextView::new(help_string))
+        .title("Help")
+        .button("Ok (Esc)", |s| try_best(s.pop_layer()))
+        .scrollable()
+        .scroll_y(true)
+        .scroll_x(true);
+
+    let help_events_handler =
+        OnEventView::new(help_view).on_event(Esc, |s| try_best(s.pop_layer()));
+
+    siv.add_layer(help_events_handler);
 }
 
 pub fn buffered_termion_backend() -> Result<Box<dyn cursive::backend::Backend>> {
