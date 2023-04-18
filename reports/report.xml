@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="1.896">
+<testsuite name="sdv-ctr-exec-tests.bats" tests="1" failures="0" errors="0" skipped="0" time="0.062" timestamp="2023-04-18T13:37:22" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-ctr-exec-tests.bats" name="CTR-EXEC should show help" time="0.062" />
+
+</testsuite>
+<testsuite name="sdv-device-info-tests.bats" tests="2" failures="0" errors="0" skipped="0" time="0.199" timestamp="2023-04-18T13:37:22" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-device-info-tests.bats" name="DEVIC-INFO should show help" time="0.068" />
+    <testcase classname="sdv-device-info-tests.bats" name="DEVIC-INFO should show device info" time="0.131" />
+
+</testsuite>
+<testsuite name="sdv-health-tests.bats" tests="3" failures="0" errors="0" skipped="0" time="0.345" timestamp="2023-04-18T13:37:22" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-health-tests.bats" name="HEALTH should show Leda" time="0.115" />
+    <testcase classname="sdv-health-tests.bats" name="HEALTH should show can0" time="0.113" />
+    <testcase classname="sdv-health-tests.bats" name="HEALTH should show SDV containers" time="0.117" />
+
+</testsuite>
+<testsuite name="sdv-help-tests.bats" tests="1" failures="0" errors="0" skipped="0" time="0.092" timestamp="2023-04-18T13:37:22" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-help-tests.bats" name="HELP should show commands" time="0.092" />
+
+</testsuite>
+<testsuite name="sdv-kanto-ctl-tests.bats" tests="1" failures="0" errors="0" skipped="0" time="0.146" timestamp="2023-04-18T13:37:23" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-kanto-ctl-tests.bats" name="SDV-KANTO-CTL should modify Kanto Config" time="0.146" />
+
+</testsuite>
+<testsuite name="sdv-motd-tests.bats" tests="9" failures="0" errors="0" skipped="0" time="1.052" timestamp="2023-04-18T13:37:24" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should show Leda" time="0.142" />
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should show system info" time="0.152" />
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should show sdv-health" time="0.148" />
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should show IP address" time="0.166" />
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should not show &#39;Device does not exist&#39;" time="0.129" />
+    <testcase classname="sdv-motd-tests.bats" name="MOTD should not show &#39;Device &#39;eth0 &#39; does not exist&#39;" time="0.127" />
+    <testcase classname="sdv-motd-tests.bats" name="Get default route network device" time="0.062" />
+    <testcase classname="sdv-motd-tests.bats" name="Get output of IP ADDR SHOW" time="0.065" />
+    <testcase classname="sdv-motd-tests.bats" name="Parse output of IP ADDR SHOW" time="0.061" />
+
+</testsuite>
+<testsuite name="sdv-provision-tests.bats" tests="1" failures="0" errors="0" skipped="1" time="0" timestamp="2023-04-18T13:37:24" hostname="b6b88f7a6dd1">
+    <testcase classname="sdv-provision-tests.bats" name="PROVISION should show help" time="0">
+        <skipped>sdv-provision requires refactoring to make it testable due to user input</skipped>
+    </testcase>
+
+</testsuite>
+</testsuites>

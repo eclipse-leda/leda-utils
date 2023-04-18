@@ -35,6 +35,8 @@ RUN echo "Eclipse Leda 0.0.0" > /etc/issue
 ADD tests/*.bats test/
 ADD sh/ sh/
 
-ENTRYPOINT [ "./test/bats/bin/bats" ]
+VOLUME [ "/reports" ]
+
+ENTRYPOINT [ "./test/bats/bin/bats" , "--report-formatter", "junit", "--output", "/reports" ]
 
 CMD [ "test/" ]
