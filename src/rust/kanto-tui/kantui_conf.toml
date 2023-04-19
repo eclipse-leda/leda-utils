@@ -23,7 +23,7 @@ remove_kbd_key = "r"
 logs_btn_name = "[L]ogs"
 logs_kbd_key = "l"
 
-quit_btn_name = "^[Q]uit"
+quit_btn_name = "[Q]uit"
 quit_kbd_key = "q"
 
 redeploy_btn_name = "^[D]eploy"
