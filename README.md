@@ -11,6 +11,7 @@ List of utilities:
 - *sdv-motd*: Message-of-the-Day shown after login prompt
 - *can-forward*: Forwarding a CAN-bus network interface into a containerized Vehicle Application
 - *sdv-ctr-exec:* Execute arbitrary commands in existing containers
+- *sdv-kanto-ctl:* Manage the Kanto Container Management configuration via CLI
 
 ## Usage
 
@@ -246,16 +247,75 @@ kanto-cm start --name=kuksa-client
 sdv-ctr-exec -n kuksa-client /kuksa-client/bin/kuksa-client --port 30555 --protocol grpc --insecure
 ```
 
+### Manage the Kanto Container Management configuration via CLI
+
+`sdv-kanto-ctl` is a convenience shell utility to manage the Container Manager configuration file.
+
+- Add and remove container registries (for authentication purposes)
+- Set primitive values in configuration
+- Restart container-management.service on configuration changes
+- Automatically back up configuration file
+- Display changes to user
+
+Synopsis: `./sdv-kanto-ctl <command> [<options>]`
+
+Full help:
+
+```shell
+$ ./sdv-kanto-ctl --help
+Eclipse Kanto Container Manager Configuration Utility
+See https://websites.eclipseprojects.io/kanto/docs/references/containers/container-manager-config/
+Usage: ./sdv-kanto-ctl <command> {options}
+Commands:
+        add-registry -h <hostname> -u <username> -p <password>
+                Adds or replaces a container registry authentication configuration
+                -h or --hostname: Configure the hostname of the container registry (e.g. hub.docker.io, ghcr.io, ...)
+                -u or --username: Configure the username
+                -p or --password: Configure the password
+        remove-registry -h <hostname>
+                Removes the specified container registry
+                -h or --hostname: The hostname of the container registry
+        remove-all-registries
+                Removes all configured container registries
+        list-registries
+                Prints all configured container registries
+        show-config
+                Print the container management configuration
+        set <key> <value>
+                Set a primitive configuration value. Key in JSON Dot-Notation
+                Examples: ./sdv-kanto-ctl set containers.registry_configurations.MyRegistry.credentials.password foobar
+                          ./sdv-kanto-ctl set things.enable true
+Options:
+        --no-reload : Do not reload the configuration and restart the container-management service automatically
+        --ansi : Don't use colored output.
+        --verbose | -v : Enable verbose mode.
+        --help : This message.
+```
+
 ## Requirements and installation
 
-The utility scripts currently require `bash`.
 The utilities are pre-installed on Eclipse Leda Quickstart distros in the *SDV Full Image* partition.
 
-### Manual installation
+### Building and manual installation
+
+To install the shell scripts:
 
 - Install bash
 - Copy the scripts to the device, e.g. to `/usr/bin/` or to your user's home directory
 - Ensure executable bit: `chmod a+x sdv-*`
+
+To build the binary utilities (e.g. kantui and kanto-auto-deployer)
+
+- Install Rust
+- Build the sources with cargo
+
+To install the binary utilities via Debian packages:
+
+- Download the Debian packages from the GitHub Releases page
+- Copy the packages to the target device
+- Install via `apt-get install <file>`
+
+> Note: The Debian packages are built specifically for Leda, and may not be compatible with other Linux distros. As long as there are minimum dependencies, they may be installable on recent Debian or Ubuntu releases.
 
 ## Contributing
 
@@ -265,6 +325,21 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 
 - Clone the repository into Visual Studio (`F1` -> `Remote-Containers: Clone repository into volume`)
 - Provide the git repository url.
+
+### Building rust utilities
+
+- Install Rust
+- Switch to the respective source folder in `src/rust/<component>`
+- Run `cargo test`
+### Running shell tests
+
+To run shell tests:
+
+```shell
+./run-tests.sh
+```
+
+The tests use the BATS framework and Docker to perform some rudimentary test scenarios on the shell scripts.
 
 ## License and Copyright
 

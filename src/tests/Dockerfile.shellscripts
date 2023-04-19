@@ -1,0 +1,42 @@
+# /********************************************************************************
+# * Copyright (c) 2023 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+
+FROM debian
+
+WORKDIR /tests
+
+RUN apt-get update && apt-get install -y git curl
+
+RUN git init
+RUN git submodule add https://github.com/bats-core/bats-core.git test/bats
+RUN git submodule add https://github.com/bats-core/bats-support.git test/test_helper/bats-support
+RUN git submodule add https://github.com/bats-core/bats-assert.git test/test_helper/bats-assert
+RUN git submodule add https://github.com/bats-core/bats-file.git test/test_helper/bats-file
+
+# Install tools needes by the Leda-Utils scripts
+# ip->iproute2, free->procps
+RUN apt-get install -y iproute2 procps jq
+
+# Install a fake "systemctl" tool
+RUN echo "#!/bin/sh\necho ""$@""" > /usr/bin/systemctl
+RUN chmod +x  /usr/bin/systemctl
+RUN echo "Eclipse Leda 0.0.0" > /etc/issue
+
+ADD tests/*.bats test/
+ADD sh/ sh/
+
+VOLUME [ "/reports" ]
+
+ENTRYPOINT [ "./test/bats/bin/bats" , "--report-formatter", "junit", "--output", "/reports" ]
+
+CMD [ "test/" ]

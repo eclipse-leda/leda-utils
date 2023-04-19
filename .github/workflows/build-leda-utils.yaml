@@ -20,6 +20,7 @@ on:
   push:
     paths:
       - 'src/sh/**'
+      - 'src/tests/**'
 
 jobs:
   build:
@@ -41,6 +42,16 @@ jobs:
         with:
           sh_checker_comment: true
           sh_checker_shfmt_disable: true
+      - name: Shell Tests
+        run: |
+          ./run-tests.sh
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()    # run this step even if previous step failed
+        with:
+          name: Shell Tests            # Name of the check run which will be created
+          path: reports/report.xml    # Path to test results
+          reporter: jest-junit 
       - name: Debian Package Preparation
         run: |
           mkdir -p .debpkg/usr/bin
