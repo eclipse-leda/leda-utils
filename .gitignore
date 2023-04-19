@@ -1,3 +1,4 @@
 /src/rust/kanto-auto-deployer/target
 tmp
 **/*.tar.gz
+reports
