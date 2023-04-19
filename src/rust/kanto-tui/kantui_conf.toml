@@ -2,7 +2,7 @@
 socket_path = "/run/container-management/container-management.sock" # Path to kanto-cm unix socket
 stop_timeout = 5 # timeout (integer) in seconds before a SIGKILL is sent after a SIGTERM
 log_tail_lines = 50 # how many lines of logs to tail in the log screen
-container_list_refresh_fps = 15 # how often to sync the container list with the actual state
+container_list_refresh_fps = 7 # how often to sync the container list with the actual state
 
 [keyconfig]
 # Set button names and keyboard shortcuts
