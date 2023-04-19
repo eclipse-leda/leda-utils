@@ -1,5 +1,16 @@
+// /********************************************************************************
+// * Copyright (c) 2023 Contributors to the Eclipse Foundation
+// *
+// * See the NOTICE file(s) distributed with this work for additional
+// * information regarding copyright ownership.
+// *
+// * This program and the accompanying materials are made available under the
+// * terms of the Apache License 2.0 which is available at
+// * https://www.apache.org/licenses/LICENSE-2.0
+// *
+// * SPDX-License-Identifier: Apache-2.0
+// ********************************************************************************/
 use cursive::{traits::*, Cursive};
-
 use super::{
     kantui_config::AppConfig, try_best, KantoRequest, KantoResponse, RequestPriority, Result,
 };
@@ -83,7 +94,7 @@ pub fn run(
 
     siv.add_global_callback(config.keyconfig.quit_kbd_key, |s| s.quit());
 
-    siv.set_fps(30);
+    siv.set_fps(config.container_list_refresh_fps.into());
 
     siv.add_global_callback(cursive::event::Event::Refresh, move |s| {
         try_best(tx_requests.try_send(KantoRequest::ListContainers, RequestPriority::Low));

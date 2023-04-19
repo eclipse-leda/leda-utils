@@ -38,9 +38,10 @@ struct CliArgs {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct AppConfig {
-    pub socket_path: String,
     pub stop_timeout: u8,
+    pub container_list_refresh_fps: u8,
     pub log_tail_lines: u32,
+    pub socket_path: String,
     pub keyconfig: KeyConfig,
 }
 

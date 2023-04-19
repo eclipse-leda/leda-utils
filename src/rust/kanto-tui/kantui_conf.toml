@@ -1,7 +1,8 @@
 # General Configuration Options
 socket_path = "/run/container-management/container-management.sock" # Path to kanto-cm unix socket
 stop_timeout = 5 # timeout (integer) in seconds before a SIGKILL is sent after a SIGTERM
-log_tail_lines = 15
+log_tail_lines = 50 # how many lines of logs to tail in the log screen
+container_list_refresh_fps = 15 # how often to sync the container list with the actual state
 
 [keyconfig]
 # Set button names and keyboard shortcuts
@@ -23,7 +24,7 @@ logs_btn_name = "[L]ogs"
 logs_kbd_key = "l"
 
 quit_btn_name = "^[Q]uit"
-quit_kbd_key = "^q"
+quit_kbd_key = "q"
 
 redeploy_btn_name = "^[D]eploy"
 redeploy_kbd_key = "^d"
