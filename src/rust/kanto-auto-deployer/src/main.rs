@@ -11,8 +11,10 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 pub mod manifest_parser;
-#[cfg(unix)]
+
+use anyhow::Result;
 use tokio::net::UnixStream;
+use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
@@ -26,12 +28,12 @@ pub mod fs_watcher;
 #[cfg(feature = "filewatcher")]
 use fs_watcher::is_filetype;
 
+use glob::glob;
 use clap::Parser;
+use std::path::PathBuf;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
-use glob::glob;
 use std::fs;
-use std::path::PathBuf;
 
 type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Channel>;
 
@@ -57,22 +59,82 @@ struct CliArgs {
     daemon: bool,
 }
 
-async fn get_client(socket_path: &str) -> Result<CmClient, Box<dyn std::error::Error>> {
+#[derive(Clone, Copy)]
+enum RetryTimes {
+    Count(usize),
+    Forever,
+}
+
+impl Into<i32> for RetryTimes {
+    fn into(self) -> i32 {
+        match self {
+            Self::Count(c) => c as i32,
+            Self::Forever => -1,
+        }
+    }
+}
+
+struct RetryState {
+    retry_times: RetryTimes
+}
+
+impl RetryState {
+    fn new(retry_times: RetryTimes) -> Self {
+        RetryState { retry_times }
+    }
+
+    // Updates the count and returns true if the caller should stop retrying
+    fn tick(&mut self) -> bool {
+        let mut retries_left = self.retry_times.into();
+        if retries_left == -1 {
+            true
+        } else {
+            retries_left = std::cmp::max(0, retries_left - 1);
+            self.retry_times = RetryTimes::Count(retries_left as usize);
+            retries_left > 0
+        }
+    }
+}
+
+async fn get_unix_channel(socket_path: &str) -> Result<tonic::transport::Channel> {
     let socket_path = PathBuf::from(socket_path);
     let channel = Endpoint::try_from("http://[::]:50051")?
         .connect_with_connector(service_fn(move |_: Uri| {
             UnixStream::connect(socket_path.clone())
         }))
         .await?;
+    Ok(channel)
+}
+
+async fn get_client(socket_path: &str, retry_count: RetryTimes) -> Result<CmClient> {
+    let mut retry_state = RetryState::new(retry_count);
+    let retry_strategy = strategy::FibonacciBackoff::from_millis(10)
+        .map(|d| {
+            log::debug!("Retrying connection in {} ms", d.as_millis());
+            d
+        })
+        .take_while(|_| {
+            retry_state.tick()
+        });
+
+    let channel = RetryIf::spawn(
+        retry_strategy,
+        || async { get_unix_channel(socket_path).await },
+        |e: &anyhow::Error| {
+            log::error!(
+                "An error occurred when connecting to socket: {:?}",
+                e.root_cause()
+            );
+            true
+        },
+    )
+    .await?;
+
     let client = kanto::containers_client::ContainersClient::new(channel);
     Ok(client)
 }
 
-async fn start(
-    _client: &mut CmClient,
-    name: &String,
-    _id: &String,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn start(_client: &mut CmClient, name: &String, _id: &String) -> Result<()> {
     log::info!("Starting [{}]", name);
     let id = String::from(_id.clone());
     let request = tonic::Request::new(kanto::StartContainerRequest { id });
@@ -81,11 +143,7 @@ async fn start(
     Ok(())
 }
 
-pub async fn stop(
-    _client: &mut CmClient,
-    id: &str,
-    timeout: i64,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn stop(_client: &mut CmClient, id: &str, timeout: i64) -> Result<()> {
     let stop_options = Some(kanto_cnt::StopOptions {
         timeout,
         force: true,
@@ -100,7 +158,7 @@ pub async fn stop(
     Ok(())
 }
 
-pub async fn remove(_client: &mut CmClient, id: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn remove(_client: &mut CmClient, id: &str) -> Result<()> {
     let _r = tonic::Request::new(kanto::RemoveContainerRequest {
         id: String::from(id),
         force: true,
@@ -109,11 +167,7 @@ pub async fn remove(_client: &mut CmClient, id: &str) -> Result<(), Box<dyn std:
     Ok(())
 }
 
-async fn create(
-    _client: &mut CmClient,
-    file_path: &String,
-    recreate: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn create(_client: &mut CmClient, file_path: &String, recreate: bool) -> Result<()> {
     let container_str = fs::read_to_string(file_path)?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(container) = parsed_json {
@@ -152,10 +206,7 @@ async fn create(
     Ok(())
 }
 
-async fn deploy_directory(
-    directory_path: &str,
-    client: &mut CmClient,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn deploy_directory(directory_path: &str, client: &mut CmClient) -> Result<()> {
     let mut file_path = String::from(directory_path);
     let mut path = String::new();
 
@@ -202,7 +253,7 @@ async fn redeploy_on_change(e: fs_watcher::Event, mut client: CmClient) {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     env_logger::init_from_env(
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
@@ -223,7 +274,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
     let manifests_path = String::from(canonical_manifests_path.to_string_lossy());
-    let mut client = get_client(&socket_path).await?;
+    let mut client = get_client(&socket_path, RetryTimes::Count(4)).await?;
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
     deploy_directory(&manifests_path, &mut client).await?;
