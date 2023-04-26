@@ -10,14 +10,18 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
-pub mod manifest_parser;
+use std::fs;
+use glob::glob;
+use std::path::PathBuf;
 
+use clap::Parser;
 use anyhow::Result;
+use tower::service_fn;
 use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
-use tower::service_fn;
 
+pub mod manifest_parser;
 pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
@@ -28,12 +32,8 @@ pub mod fs_watcher;
 #[cfg(feature = "filewatcher")]
 use fs_watcher::is_filetype;
 
-use clap::Parser;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
-use glob::glob;
-use std::fs;
-use std::path::PathBuf;
 
 type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Channel>;
 
@@ -59,11 +59,13 @@ struct CliArgs {
     daemon: bool,
 }
 
+// Conditional compilation would give warning for unused variants
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq)]
-enum RetryTimes {
+pub enum RetryTimes {
     Count(u32),
     Forever,
-    Never
+    Never,
 }
 
 struct RetryState {
@@ -272,8 +274,8 @@ async fn main() -> Result<()> {
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
 
-    // Do not retry when using as a CLI tool
-    let mut retry_times = RetryTimes::Count(0);
+    // Do not retry by default (CLI tool)
+    let mut retry_times = RetryTimes::Never;
 
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
