@@ -63,6 +63,7 @@ struct CliArgs {
 enum RetryTimes {
     Count(u32),
     Forever,
+    Never
 }
 
 struct RetryState {
@@ -78,6 +79,7 @@ impl RetryState {
     fn tick(&mut self) -> bool {
         match self.retry_times {
             RetryTimes::Forever => true,
+            RetryTimes::Never => false,
             RetryTimes::Count(c) => {
                 let retries_left = c.checked_sub(1).unwrap_or(0);
                 self.retry_times = RetryTimes::Count(retries_left);
@@ -231,7 +233,7 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
 async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
     // In daemon mode we wait until a connection is available to proceed
     // Unwrapping in this case is safe.
-    let mut client = get_client(socket, RetryTimes::Forever).await.unwrap();
+    let mut client = get_client(socket, RetryTimes::Never).await.unwrap();
     for path in &e.paths {
         if !is_filetype(path, "json") {
             continue;
