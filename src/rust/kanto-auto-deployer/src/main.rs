@@ -162,8 +162,9 @@ pub async fn remove(_client: &mut CmClient, id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn create(_client: &mut CmClient, file_path: &str, recreate: bool) -> Result<()> {
+async fn create(socket: &str, retries: RetryTimes,file_path: &str, recreate: bool) -> Result<()> {
     let container_str = fs::read_to_string(file_path)?;
+    let mut _client = get_client(socket, retries).await?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(container) = parsed_json {
         let container: kanto_cnt::Container = container;
@@ -178,9 +179,9 @@ async fn create(_client: &mut CmClient, file_path: &str, recreate: bool) -> Resu
                     return Ok(());
                 }
                 log::debug!("Stopping [{name}]");
-                stop(_client, &cont.id, 1).await?;
+                stop(&mut _client, &cont.id, 1).await?;
                 log::info!("Removing [{name}]");
-                remove(_client, &cont.id).await?;
+                remove(&mut _client, &cont.id).await?;
             }
         }
         log::info!("Creating [{}]", name);
@@ -194,7 +195,7 @@ async fn create(_client: &mut CmClient, file_path: &str, recreate: bool) -> Resu
             Some(c) => c.id,
             None => _none,
         };
-        start(_client, &name, &id).await?;
+        start(&mut _client, &name, &id).await?;
     } else {
         log::error!("Wrong json in [{}]", file_path);
     }
@@ -204,7 +205,6 @@ async fn create(_client: &mut CmClient, file_path: &str, recreate: bool) -> Resu
 async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTimes) -> Result<()> {
     let mut file_path = String::from(directory_path);
     let mut path = String::new();
-    let mut client = get_client(socket, retries).await?;
 
     path.push_str(&file_path.clone());
     file_path.push_str("/*.json");
@@ -221,7 +221,7 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
             .to_string();
         full_name.push_str(&name);
         b_found = true;
-        match create(&mut client, &full_name, false).await {
+        match create(socket, retries, &full_name, false).await {
             Ok(_) => {}
             Err(e) => log::error!("[CM error] Failed to create: {:?}", e.root_cause()),
         };
@@ -237,14 +237,13 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
 async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
     // In daemon mode we wait until a connection is available to proceed
     // Unwrapping in this case is safe.
-    let mut client = get_client(socket, RetryTimes::Forever).await.unwrap();
     for path in &e.paths {
         if !is_filetype(path, "json") {
             continue;
         }
         if e.kind.is_create() || e.kind.is_modify() {
             let json_path = String::from(path.to_string_lossy());
-            if let Err(e) = create(&mut client, &json_path, true).await {
+            if let Err(e) = create(socket, RetryTimes::Forever, &json_path, true).await {
                 log::error!("[CM error] {:?}", e.root_cause());
             };
         }
