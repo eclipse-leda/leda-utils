@@ -59,7 +59,9 @@ struct CliArgs {
     daemon: bool,
 }
 
-// Conditional compilation would give warning for unused variants
+static CONN_RETRY_BASE_TIMEOUT_MS: u64 = 100;
+
+// Conditional compilation would give warnings for unused variants
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum RetryTimes {
@@ -103,7 +105,7 @@ async fn get_unix_channel(socket_path: &str) -> Result<tonic::transport::Channel
 
 async fn get_client(socket_path: &str, retries: RetryTimes) -> Result<CmClient> {
     let mut retry_state = RetryState::new(retries);
-    let retry_strategy = strategy::FibonacciBackoff::from_millis(10)
+    let retry_strategy = strategy::FibonacciBackoff::from_millis(CONN_RETRY_BASE_TIMEOUT_MS)
         .map(|d| {
             log::debug!("Retrying connection in {} ms", d.as_millis());
             d
