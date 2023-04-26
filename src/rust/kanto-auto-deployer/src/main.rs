@@ -235,7 +235,7 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
 async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
     // In daemon mode we wait until a connection is available to proceed
     // Unwrapping in this case is safe.
-    let mut client = get_client(socket, RetryTimes::Never).await.unwrap();
+    let mut client = get_client(socket, RetryTimes::Forever).await.unwrap();
     for path in &e.paths {
         if !is_filetype(path, "json") {
             continue;
