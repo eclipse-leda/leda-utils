@@ -85,7 +85,7 @@ impl RetryState {
             RetryTimes::Forever => true,
             RetryTimes::Never => false,
             RetryTimes::Count(c) => {
-                let retries_left = c.checked_sub(1).unwrap_or(0);
+                let retries_left = c.saturating_sub(1);
                 self.retry_times = RetryTimes::Count(retries_left);
                 retries_left > 0
             }
