@@ -131,7 +131,7 @@ async fn get_client(socket_path: &str, retries: RetryTimes) -> Result<CmClient> 
 
 async fn start(_client: &mut CmClient, name: &str, _id: &str) -> Result<()> {
     log::info!("Starting [{}]", name);
-    let id = String::from(_id.clone());
+    let id = String::from(_id);
     let request = tonic::Request::new(kanto::StartContainerRequest { id });
     let _response = _client.start(request).await?;
     log::info!("Started [{}]", name);
@@ -168,7 +168,7 @@ async fn create(socket: &str, retries: RetryTimes,file_path: &str, recreate: boo
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(container) = parsed_json {
         let container: kanto_cnt::Container = container;
-        let name = String::from(container.name.clone());
+        let name = container.name.clone();
         let _r = tonic::Request::new(kanto::ListContainersRequest {});
         let containers = _client.list(_r).await?.into_inner();
         for cont in &containers.containers {

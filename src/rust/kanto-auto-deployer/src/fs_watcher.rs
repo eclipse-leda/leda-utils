@@ -14,7 +14,7 @@
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use std::future::Future;
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     time::Duration,
 };
 
@@ -63,7 +63,7 @@ where
     Ok(())
 }
 
-pub fn is_filetype(path: &PathBuf, extension: &str) -> bool {
+pub fn is_filetype(path: &Path, extension: &str) -> bool {
     if path.extension().is_none() {
         return false;
     }
@@ -72,5 +72,5 @@ pub fn is_filetype(path: &PathBuf, extension: &str) -> bool {
         return true;
     }
 
-    return false;
+    false
 }
