@@ -162,40 +162,64 @@ pub async fn remove(_client: &mut CmClient, id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn create(socket: &str, retries: RetryTimes,file_path: &str, recreate: bool) -> Result<()> {
+fn container_running(c: &kanto_cnt::Container) -> bool{
+    if let Some(state) = &c.state {
+        return state.running;
+    }
+    false
+}
+
+async fn handle_existing(_client: &mut CmClient, name: &str, new_cont: kanto_cnt::Container, existing_cont: &kanto_cnt::Container, recreate: bool) -> Result<()> {
+    log::info!("Already exists [{}]", name);
+    if !recreate {
+        // If we do not wish to recreate the container only start it if needed 
+        // and return early
+        log::debug!("Skipping {name}");
+        if !container_running(existing_cont) {
+            start(_client, name, &existing_cont.id).await?;
+        }
+        return Ok(());
+    } 
+    if container_running(&existing_cont) {
+        log::debug!("Stopping [{name}]");
+        stop(_client, &existing_cont.id, 1).await?;
+    }
+    log::info!("Removing [{name}]");
+    remove(_client, &existing_cont.id).await?;
+    create_new(_client, name, new_cont).await?;
+    Ok(())
+}
+
+async fn create_new(_client: &mut CmClient, name: &str, new_cont: kanto_cnt::Container) -> Result<()> {
+    log::info!("Creating [{}]", name);
+    let request = tonic::Request::new(kanto::CreateContainerRequest {
+        container: Some(new_cont),
+    });
+    let _response = _client.create(request).await?;
+    log::info!("Created [{}]", name);
+    let id = match _response.into_inner().container {
+        Some(c) => c.id,
+        None => String::new(),
+    };
+    start(_client, name, &id).await?;
+    Ok(())
+}
+
+async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bool) -> Result<()> {
     let container_str = fs::read_to_string(file_path)?;
     let mut _client = get_client(socket, retries).await?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
-    if let Ok(container) = parsed_json {
-        let container: kanto_cnt::Container = container;
-        let name = container.name.clone();
+    if let Ok(c) = parsed_json {
+        let new_container: kanto_cnt::Container = c;
+        let name = new_container.name.clone();
         let _r = tonic::Request::new(kanto::ListContainersRequest {});
-        let containers = _client.list(_r).await?.into_inner();
-        for cont in &containers.containers {
-            if cont.name == name {
-                log::info!("Already exists [{}]", name);
-                if !recreate {
-                    log::debug!("Skipping {name}");
-                    return Ok(());
-                }
-                log::debug!("Stopping [{name}]");
-                stop(&mut _client, &cont.id, 1).await?;
-                log::info!("Removing [{name}]");
-                remove(&mut _client, &cont.id).await?;
-            }
+        let containers_list = _client.list(_r).await?.into_inner().containers;
+        let existing_instance = containers_list.iter().find(|c| c.name == name);
+        if let Some(existing_cont) = existing_instance {
+            return handle_existing(&mut _client, &name, new_container, existing_cont, recreate).await;
+        } else {
+            return create_new(&mut _client, &name, new_container).await;
         }
-        log::info!("Creating [{}]", name);
-        let request = tonic::Request::new(kanto::CreateContainerRequest {
-            container: Some(container),
-        });
-        let _response = _client.create(request).await?;
-        log::info!("Created [{}]", name);
-        let _none = String::new();
-        let id = match _response.into_inner().container {
-            Some(c) => c.id,
-            None => _none,
-        };
-        start(&mut _client, &name, &id).await?;
     } else {
         log::error!("Wrong json in [{}]", file_path);
     }
@@ -221,7 +245,7 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
             .to_string();
         full_name.push_str(&name);
         b_found = true;
-        match create(socket, retries, &full_name, false).await {
+        match deploy(socket, retries, &full_name, false).await {
             Ok(_) => {}
             Err(e) => log::error!("[CM error] Failed to create: {:?}", e.root_cause()),
         };
@@ -243,7 +267,7 @@ async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
         }
         if e.kind.is_create() || e.kind.is_modify() {
             let json_path = String::from(path.to_string_lossy());
-            if let Err(e) = create(socket, RetryTimes::Forever, &json_path, true).await {
+            if let Err(e) = deploy(socket, RetryTimes::Forever, &json_path, true).await {
                 log::error!("[CM error] {:?}", e.root_cause());
             };
         }
