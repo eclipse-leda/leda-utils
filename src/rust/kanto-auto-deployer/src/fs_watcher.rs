@@ -13,10 +13,7 @@
 
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use std::future::Future;
-use std::{
-    path::Path,
-    time::Duration,
-};
+use std::{path::Path, time::Duration};
 
 pub use notify::Event;
 use tokio::sync::mpsc::{channel, Receiver};

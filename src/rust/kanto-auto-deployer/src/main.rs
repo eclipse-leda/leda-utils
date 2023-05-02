@@ -10,12 +10,12 @@
 // *
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
-use std::fs;
 use glob::glob;
+use std::fs;
 use std::path::PathBuf;
 
-use clap::Parser;
 use anyhow::Result;
+use clap::Parser;
 use tower::service_fn;
 use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
@@ -162,46 +162,52 @@ pub async fn remove(_client: &mut CmClient, id: &str) -> Result<()> {
     Ok(())
 }
 
-fn container_running(c: &kanto_cnt::Container) -> bool{
+fn container_running(c: &kanto_cnt::Container) -> bool {
     if let Some(state) = &c.state {
         return state.running;
     }
     false
 }
 
-async fn handle_existing(_client: &mut CmClient, name: &str, new_cont: kanto_cnt::Container, existing_cont: &kanto_cnt::Container, recreate: bool) -> Result<()> {
-    log::info!("Already exists [{}]", name);
+async fn handle_existing(
+    _client: &mut CmClient,
+    new_cont: kanto_cnt::Container,
+    existing_cont: &kanto_cnt::Container,
+    recreate: bool,
+) -> Result<()> {
+    log::info!("Already exists [{}]", &new_cont.name);
     if !recreate {
-        // If we do not wish to recreate the container only start it if needed 
+        // If we do not wish to recreate the container only start it if needed
         // and return early
-        log::debug!("Skipping {name}");
+        log::debug!("Skipping {}", &new_cont.name);
         if !container_running(existing_cont) {
-            start(_client, name, &existing_cont.id).await?;
+            start(_client, &new_cont.name, &existing_cont.id).await?;
         }
         return Ok(());
-    } 
-    if container_running(&existing_cont) {
-        log::debug!("Stopping [{name}]");
+    }
+    if container_running(existing_cont) {
+        log::debug!("Stopping [{}]", &new_cont.name);
         stop(_client, &existing_cont.id, 1).await?;
     }
-    log::info!("Removing [{name}]");
+    log::info!("Removing [{}]", &new_cont.name);
     remove(_client, &existing_cont.id).await?;
-    create_new(_client, name, new_cont).await?;
+    deploy_new(_client, new_cont).await?;
     Ok(())
 }
 
-async fn create_new(_client: &mut CmClient, name: &str, new_cont: kanto_cnt::Container) -> Result<()> {
-    log::info!("Creating [{}]", name);
+async fn deploy_new(_client: &mut CmClient, new_cont: kanto_cnt::Container) -> Result<()> {
+    let new_cont_name = new_cont.name.clone();
+    log::info!("Creating [{}]", &new_cont_name);
     let request = tonic::Request::new(kanto::CreateContainerRequest {
         container: Some(new_cont),
     });
     let _response = _client.create(request).await?;
-    log::info!("Created [{}]", name);
+    log::info!("Created [{}]", &new_cont_name);
     let id = match _response.into_inner().container {
         Some(c) => c.id,
         None => String::new(),
     };
-    start(_client, name, &id).await?;
+    start(_client, &new_cont_name, &id).await?;
     Ok(())
 }
 
@@ -211,14 +217,15 @@ async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bo
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(c) = parsed_json {
         let new_container: kanto_cnt::Container = c;
-        let name = new_container.name.clone();
         let _r = tonic::Request::new(kanto::ListContainersRequest {});
         let containers_list = _client.list(_r).await?.into_inner().containers;
-        let existing_instance = containers_list.iter().find(|c| c.name == name);
+        let existing_instance = containers_list
+            .iter()
+            .find(|c| c.name == new_container.name);
         if let Some(existing_cont) = existing_instance {
-            return handle_existing(&mut _client, &name, new_container, existing_cont, recreate).await;
+            return handle_existing(&mut _client, new_container, existing_cont, recreate).await;
         } else {
-            return create_new(&mut _client, &name, new_container).await;
+            return deploy_new(&mut _client, new_container).await;
         }
     } else {
         log::error!("Wrong json in [{}]", file_path);
