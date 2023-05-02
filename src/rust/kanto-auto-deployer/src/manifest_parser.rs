@@ -36,10 +36,10 @@ fn update_template(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let template_val = template
         .get_mut(template_key)
-        .ok_or(anyhow!("No such template key \"{}\"", template_key))?;
+        .ok_or_else(|| anyhow!("No such template key \"{}\"", template_key))?;
     let data_val = data
         .get(data_key)
-        .ok_or(anyhow!("No such data key \"{}\"", data_key))?;
+        .ok_or_else(|| anyhow!("No such data key \"{}\"", data_key))?;
 
     *template_val = data_val.clone();
 
@@ -48,10 +48,9 @@ fn update_template(
 
 /// Consume a Result<T, E> variant and print-out a debug log if it's the Err variant
 fn try_or_print<T: std::fmt::Debug>(res: Result<T, Box<dyn std::error::Error>>) {
-    match res {
-        Err(e) => log::debug!("{:#?}. Using default value...", e),
-        _ => (),
-    };
+    if let Err(e) = res {
+        log::debug!("{:#?}. Using default value...", e)
+    }
 }
 
 /// Tries to map top-level json properties from kanto container-config style manifests
@@ -115,19 +114,19 @@ fn map_to_internal_state_manifest(
 fn expand_container_manifest(manifest: &Value) -> Result<Value, Box<dyn std::error::Error>> {
     let ctr_config_template = include_str!("kanto_internal_ctr_repr.json.template.in");
     let mut ctr_config_template = serde_json::from_str(ctr_config_template)?;
-    merge(&mut ctr_config_template, &manifest);
+    merge(&mut ctr_config_template, manifest);
     Ok(ctr_config_template)
 }
 
 pub fn try_parse_manifest(container_str: &str) -> Result<Container, Box<dyn std::error::Error>> {
-    let parsed_json: Container = match serde_json::from_str(&container_str) {
+    let parsed_json: Container = match serde_json::from_str(container_str) {
         Ok(ctr) => {
             log::debug!("Manifest is in auto-deployer format already. Deploying directly");
             ctr
         }
         Err(_) => {
             log::warn!("Failed to load manifest directly. Will attempt auto-conversion from init-dir format.");
-            let manifest = serde_json::from_str(&container_str)?;
+            let manifest = serde_json::from_str(container_str)?;
             let manifest = expand_container_manifest(&manifest)?;
             let internal_state = map_to_internal_state_manifest(manifest)?;
 

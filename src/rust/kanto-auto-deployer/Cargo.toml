@@ -1,6 +1,6 @@
 [package]
 name = "kanto-auto-deployer"
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 description = "Automated deployment of Kanto Container Management Manifests"
 license = "Apache-2.0"
@@ -16,7 +16,6 @@ tokio = { version = "1.20.0", features = ["rt-multi-thread"] }
 tokio-stream = { version = "0.1.12", default-features = false}
 tonic = { version = "0.7.2" }
 tower = { version = "0.4.13", default-features=false }
-hyper = { version = "0.14.25" }
 serde = { version = "1.0.147", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.89", default-features = false}
 glob = "0.3.0"
@@ -27,6 +26,7 @@ env_logger = "0.9.3"
 notify = { version = "5.1.0", optional = true }
 clap = { version = "3.2.23", features = ["derive"] }
 enclose = { version = "1.1.8", optional = true }
+tokio-retry = "0.3.0"
 
 [build-dependencies]
 tonic-build = "0.7.2"
