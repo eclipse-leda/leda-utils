@@ -215,8 +215,7 @@ async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bo
     let container_str = fs::read_to_string(file_path)?;
     let mut _client = get_client(socket, retries).await?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
-    if let Ok(c) = parsed_json {
-        let new_container: kanto_cnt::Container = c;
+    if let Ok(new_container) = parsed_json {
         let _r = tonic::Request::new(kanto::ListContainersRequest {});
         let containers_list = _client.list(_r).await?.into_inner().containers;
         let existing_instance = containers_list
