@@ -1,4 +1,12 @@
 # Curation for OSS OCaaS findings. For reference, see : https://github.com/oss-review-toolkit/ort/blob/main/docs/config-file-ort-yml.md
+excludes:
+  paths:
+  - pattern: "src/rust/kanto-auto-deployer/container-management/**"
+    reason: "BUILD_TOOL_OF"
+    comment: "Container management protobuffers are only used during build time and are licensed under Apache-2.0. No other parts of Container-managament are used"
+  - pattern: "src/rust/kanto-tui/container-management/**"
+    reason: "BUILD_TOOL_OF"
+    comment: "Container management protobuffers are only used during build time and are licensed under Apache-2.0. No other parts of Container-managament are used"
 package_configurations:
   - id: "Cargo::kantui:0.3.0"
     vcs:
@@ -42,6 +50,7 @@ package_configurations:
       concluded_license: Apache-2.0
       reason: INCORRECT
       comment: "Kantui and all of its submodules are licensed under Apache-2.0"
+    
 license_choices:
   repository_license_choices:
   - given: "GPL-2.0-or-later OR MIT"
