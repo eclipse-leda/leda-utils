@@ -1,1 +1,48 @@
 # Curation for OSS OCaaS findings. For reference, see : https://github.com/oss-review-toolkit/ort/blob/main/docs/config-file-ort-yml.md
+package_configurations:
+  - id: "Cargo::kantui:0.3.0"
+    vcs:
+      type: "Git"
+      url: "https://github.com/SoftwareDefinedVehicle/leda-utils-fork.git"
+      revision: "ea38c97ce8099ab327d24a8cbfb1fd0a33a43612"
+    license_finding_curations:
+    - path: "src/rust/kanto-tui/src/kanto_api.rs"
+      start_lines: "7"
+      line_count: 2
+      detected_license: "LicenseRef-scancode-biosl-4.0"
+      concluded_license: Apache-2.0
+      reason: INCORRECT
+      comment: "Kantui and all of its submodules are licensed under Apache-2.0"
+  - id: "Crate::rand_core:0.6.4"
+    source_artifact_url: "https://crates.io/api/v1/crates/rand_core/0.6.4/download"
+    license_finding_curations:
+    - path: "rand_core-0.6.4/LICENSE-APACHE"
+      start_lines: "7"
+      line_count: 181
+      detected_license: "ImageMagick"
+      concluded_license: "MIT OR Apache-2.0"
+      reason: INCORRECT
+      comment: "The rand_core crate is dual licensed under Apache-2.0 or MIT"
+  - id: "Crate::windows:0.48.0"
+    source_artifact_url: "https://crates.io/api/v1/crates/windows-sys/0.42.0/download"
+    path_excludes:
+    - pattern: "**/**"
+      reason: "OPTIONAL_COMPONENT_OF"
+      comment: "The distribution target architectures do not include windows and the crate is dual-licensed under Apache-2.0 or MIT"
+  - id: "Cargo::kantui:0.3.0"
+    vcs:
+      type: "Git"
+      url: "https://github.com/SoftwareDefinedVehicle/leda-utils-fork.git"
+      revision: "ea38c97ce8099ab327d24a8cbfb1fd0a33a43612"
+    license_finding_curations:
+    - path: "src/rust/kanto-tui/src/main.rs"
+      start_lines: "7"
+      line_count: 3
+      detected_license: "GPL-2.0-only"
+      concluded_license: Apache-2.0
+      reason: INCORRECT
+      comment: "Kantui and all of its submodules are licensed under Apache-2.0"
+license_choices:
+  repository_license_choices:
+  - given: "GPL-2.0-or-later OR MIT"
+    choice: "MIT"
