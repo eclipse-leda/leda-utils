@@ -21,6 +21,13 @@ package_configurations:
       concluded_license: Apache-2.0
       reason: INCORRECT
       comment: "Kantui and all of its submodules are licensed under Apache-2.0"
+    - path: "src/rust/kanto-tui/src/main.rs"
+      start_lines: "7"
+      line_count: 3
+      detected_license: "GPL-2.0-only"
+      concluded_license: Apache-2.0
+      reason: INCORRECT
+      comment: "Kantui and all of its submodules are licensed under Apache-2.0"
   - id: "Crate::rand_core:0.6.4"
     source_artifact_url: "https://crates.io/api/v1/crates/rand_core/0.6.4/download"
     license_finding_curations:
@@ -37,20 +44,7 @@ package_configurations:
     - pattern: "**/**"
       reason: "OPTIONAL_COMPONENT_OF"
       comment: "The distribution target architectures do not include windows and the crate is dual-licensed under Apache-2.0 or MIT"
-  - id: "Cargo::kantui:0.3.0"
-    vcs:
-      type: "Git"
-      url: "https://github.com/SoftwareDefinedVehicle/leda-utils-fork.git"
-      revision: "ea38c97ce8099ab327d24a8cbfb1fd0a33a43612"
-    license_finding_curations:
-    - path: "src/rust/kanto-tui/src/main.rs"
-      start_lines: "7"
-      line_count: 3
-      detected_license: "GPL-2.0-only"
-      concluded_license: Apache-2.0
-      reason: INCORRECT
-      comment: "Kantui and all of its submodules are licensed under Apache-2.0"
-    
+
 license_choices:
   repository_license_choices:
   - given: "GPL-2.0-or-later OR MIT"
