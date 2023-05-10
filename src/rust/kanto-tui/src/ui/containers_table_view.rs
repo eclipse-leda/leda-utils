@@ -1,4 +1,4 @@
-// /********************************************************************************
+// ********************************************************************************
 // * Copyright (c) 2022 Contributors to the Eclipse Foundation
 // *
 // * See the NOTICE file(s) distributed with this work for additional
@@ -9,7 +9,7 @@
 // * https://www.apache.org/licenses/LICENSE-2.0
 // *
 // * SPDX-License-Identifier: Apache-2.0
-// ********************************************************************************/
+// ********************************************************************************
 use crate::kantui_config::{AppConfig, ALT_REPR, CTRL_REPR};
 use crate::{cm_types, try_best, Result};
 use cursive::align::HAlign;
