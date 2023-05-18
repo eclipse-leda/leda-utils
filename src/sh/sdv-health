@@ -209,7 +209,7 @@ check_cloudconnector()
 			local SINCE
 			LAST_UPDATE=$(mosquitto_sub --quiet -h ${MOSQUITTO_HOST} -t 'edge/connection/remote/status' -C 1 -W 1 | jq .timestamp)
 			NOW=$(date +"%s")
-			DIFF=$(($NOW - $LAST_UPDATE))
+			DIFF=$((NOW - LAST_UPDATE))
 			SINCE=$(date -u -d @"$DIFF" +'%-Mm %-Ss')
 			printf -- "$TEXT_OK\t (connected since $SINCE)\n"
 		else
