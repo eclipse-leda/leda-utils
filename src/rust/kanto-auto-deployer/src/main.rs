@@ -11,21 +11,24 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 use glob::glob;
-use std::fs;
+use std::{fs, thread};
 use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
 use tower::service_fn;
 use tokio::net::UnixStream;
+use std::sync::atomic::AtomicBool;
 use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
 
 pub mod manifest_parser;
+pub mod mqtt_listener;
 pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
 }
+
 
 #[cfg(feature = "filewatcher")]
 pub mod fs_watcher;
@@ -305,6 +308,9 @@ async fn main() -> Result<()> {
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
 
+    static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
+    thread::spawn(|| mqtt_listener::mqtt_main(&THREAD_TERMINATE_FLAG));
+
     // Do not retry by default (CLI tool)
     let mut retry_times = RetryTimes::Never;
 
@@ -323,7 +329,9 @@ async fn main() -> Result<()> {
             "Running in daemon mode. Continuously monitoring {:#?}",
             manifests_path
         );
-        fs_watcher::async_watch(&manifests_path, |e| async {
+        fs_watcher::async_watch(&THREAD_TERMINATE_FLAG, 
+            &manifests_path, 
+            |e| async {
             redeploy_on_change(e, &socket_path).await
         })
         .await?

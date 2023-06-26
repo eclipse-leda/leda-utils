@@ -13,12 +13,15 @@
 
 use notify::{Config, PollWatcher, RecursiveMode, Watcher};
 use std::future::Future;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{path::Path, time::Duration};
 
 pub use notify::Event;
 use tokio::sync::mpsc::{channel, Receiver};
+use tokio::{select, time::sleep};
 
 const POLL_SECONDS: f64 = 10.0;
+static CHECK_TERMINATION_FLAG_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Based on the examples from the notify crate for async watchers
 /// Here template callbacks are used and the async runtime was changed to
@@ -43,7 +46,11 @@ fn async_watcher() -> notify::Result<(PollWatcher, Receiver<notify::Result<Event
     Ok((watcher, rx))
 }
 
-pub async fn async_watch<'a, P, F, Fut>(path: P, callback: F) -> notify::Result<()>
+pub async fn async_watch<'a, P, F, Fut>(
+    thread_terminate_flag: &AtomicBool,
+    path: P,
+    callback: F,
+) -> notify::Result<()>
 where
     P: AsRef<Path>,
     F: Fn(Event) -> Fut,
@@ -53,10 +60,23 @@ where
 
     watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
 
-    while let Some(event) = rx.recv().await {
-        callback(event?).await
+    loop {
+        // Do not check the termination flag all the time (= busy wait)
+        // If a redeploy event completes before the flag check timeout
+        // is over, handle the filesystem event (select handles the first future
+        // that completes)
+        select! {
+            _ = sleep(CHECK_TERMINATION_FLAG_TIMEOUT) => {
+                if thread_terminate_flag.load(Ordering::Relaxed) {
+                    log::warn!("Getting terminated from MQTT!");
+                    break;
+                }
+            }
+            Some(event) = rx.recv() => {
+                callback(event?).await
+            }
+        }
     }
-
     Ok(())
 }
 
