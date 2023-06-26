@@ -22,7 +22,7 @@ fn handle_mqtt_payload(payload: &[u8], thread_terminate_flag: &AtomicBool) -> Re
         .as_bool()
         .ok_or_else(|| anyhow!("Expected boolean type for value for key {TERMINATE_KEY_JSON}"))?;
 
-    // Only if the termination request is received, update the atomic flag
+    // Only if an actual termination request is received, update the atomic flag
     if terminate_flag_mqtt {
         thread_terminate_flag.store(true, Ordering::Relaxed);
     }
@@ -46,10 +46,13 @@ fn try_mqtt_reconnect(timeout: &mut Duration, client: &mut Client, topic: &str, 
 }
 
 pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -> Result<()> {
+    log::debug!(
+        "Trying to start MQTT connection with options {:?}",
+        &cli_config.mqtt
+    );
+    
     let mut mqttoptions = MqttOptions::new(SERVICE_ID, &cli_config.mqtt.ip, cli_config.mqtt.port);
-    log::debug!("Trying to start MQTT connection with options {:?}", &cli_config.mqtt);
     mqttoptions.set_keep_alive(Duration::from_secs(5));
-
     let delta = Duration::from_secs(RECONNECT_TIMEOUT);
     let mut timeout = delta;
 

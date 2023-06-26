@@ -24,6 +24,8 @@ use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
 pub mod manifest_parser;
+
+#[cfg(feature = "mqtt")]
 pub mod mqtt_listener;
 pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
@@ -61,10 +63,12 @@ pub struct CliArgs {
     #[cfg(feature = "filewatcher")]
     daemon: bool,
 
+    #[cfg(feature = "mqtt")]
     #[clap(flatten)]
     mqtt: MQTTconfig,
 }
 
+#[cfg(feature = "mqtt")]
 #[derive(Debug, Args)]
 pub struct MQTTconfig {
     /// Hostname/IP to the MQTT broker where the desired state message would be posted
@@ -342,6 +346,7 @@ async fn main() -> Result<()> {
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
         static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
+        #[cfg(feature = "mqtt")]
         thread::spawn({
             let cli = cli.clone();
             || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)

@@ -1,6 +1,6 @@
 [package]
 name = "kanto-auto-deployer"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "Automated deployment of Kanto Container Management Manifests"
 license = "Apache-2.0"
@@ -13,23 +13,22 @@ build = "build.rs"
 [dependencies]
 prost = "0.10.4"
 tokio = { version = "1.20.0", features = ["rt-multi-thread"] }
-tokio-stream = { version = "0.1.12", default-features = false}
+tokio-stream = { version = "0.1.12", default-features = false }
 tonic = { version = "0.7.2" }
-tower = { version = "0.4.13", default-features=false }
+tower = { version = "0.4.13", default-features = false }
 serde = { version = "1.0.147", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.89", default-features = false}
+serde_json = { version = "1.0.89", default-features = false }
 glob = "0.3.0"
 anyhow = "1.0.69"
-json-patch = {version  = "0.3.0", default-features = false}
+json-patch = { version = "0.3.0", default-features = false }
 log = "=0.4.18"
 env_logger = "0.9.3"
 notify = { version = "5.1.0", optional = true }
 clap = { version = "3.2.23", features = ["derive"] }
 enclose = { version = "1.1.8", optional = true }
 tokio-retry = "0.3.0"
-
-rumqttc = { version = "0.17.0"}
-rustls-native-certs="=0.6.0"
+rumqttc = { version = "0.17.0", optional = true }
+rustls-native-certs = { version = "=0.6.0", optional = true }
 
 [build-dependencies]
 tonic-build = "0.7.2"
@@ -39,8 +38,9 @@ name = "kanto-auto-deployer"
 path = "src/main.rs"
 
 [features]
-default = ["filewatcher"]
+default = ["filewatcher", "mqtt"]
 filewatcher = ["notify", "enclose"]
+mqtt = ["filewatcher", "rumqttc", "rustls-native-certs"]
 
 [profile.release]
 lto = true
