@@ -71,6 +71,10 @@ pub struct CliArgs {
 #[cfg(feature = "mqtt")]
 #[derive(Debug, Args)]
 pub struct MQTTconfig {
+    /// Enable an MQTT client that listens for the desired state message and disables kanto-auto-deployer to avoid conflicts
+    #[clap(short = 'm', long = "mqtt")]
+    enabled: bool,
+
     /// Hostname/IP to the MQTT broker where the desired state message would be posted
     #[clap(long = "mqtt-broker-host", default_value = "localhost")]
     ip: String,
@@ -84,8 +88,7 @@ pub struct MQTTconfig {
     topic: String,
 }
 
-static CONN_RETRY_BASE_TIMEOUT_MS: u64 = 100;
-
+static CM_RETRY_BASE_TIMEOUT_MS: u64 = 100;
 // Conditional compilation would give warnings for unused variants
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq)]
@@ -130,7 +133,7 @@ async fn get_unix_channel(socket_path: &str) -> Result<tonic::transport::Channel
 
 async fn get_client(socket_path: &str, retries: RetryTimes) -> Result<CmClient> {
     let mut retry_state = RetryState::new(retries);
-    let retry_strategy = strategy::FibonacciBackoff::from_millis(CONN_RETRY_BASE_TIMEOUT_MS)
+    let retry_strategy = strategy::FibonacciBackoff::from_millis(CM_RETRY_BASE_TIMEOUT_MS)
         .map(|d| {
             log::debug!("Retrying connection in {} ms", d.as_millis());
             d
@@ -330,7 +333,6 @@ async fn main() -> Result<()> {
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
 
-    
     // Do not retry by default (CLI tool)
     let mut retry_times = RetryTimes::Never;
 
@@ -342,15 +344,18 @@ async fn main() -> Result<()> {
 
     // One-shot deployment of all manifests in directory
     deploy_directory(&manifests_path, &socket_path, retry_times).await?;
-    
+
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
         static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
         #[cfg(feature = "mqtt")]
-        thread::spawn({
-            let cli = cli.clone();
-            || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)
-        });
+        if cli.mqtt.enabled {
+            log::info!("MQTT for daemon mode enabled. Will auto-disable whenever VUM takes over.");
+            thread::spawn({
+                let cli = cli.clone();
+                || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)
+            });
+        }
         log::info!(
             "Running in daemon mode. Continuously monitoring {:#?}",
             manifests_path
