@@ -11,16 +11,17 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 use glob::glob;
-use std::{fs, thread};
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::{fs, thread};
 
 use anyhow::Result;
-use clap::Parser;
-use tower::service_fn;
-use tokio::net::UnixStream;
+use clap::{Args, Parser};
 use std::sync::atomic::AtomicBool;
+use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
+use tower::service_fn;
 
 pub mod manifest_parser;
 pub mod mqtt_listener;
@@ -28,7 +29,6 @@ pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
 }
-
 
 #[cfg(feature = "filewatcher")]
 pub mod fs_watcher;
@@ -42,7 +42,7 @@ type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Cha
 
 #[derive(Parser, Debug)]
 #[clap(version, about)]
-struct CliArgs {
+pub struct CliArgs {
     /// Set the path to the directory containing the manifests
     #[clap(default_value = ".")]
     manifests_path: PathBuf,
@@ -60,6 +60,24 @@ struct CliArgs {
     #[clap(long, short, action, default_value_t = false)]
     #[cfg(feature = "filewatcher")]
     daemon: bool,
+
+    #[clap(flatten)]
+    mqtt: MQTTconfig,
+}
+
+#[derive(Debug, Args)]
+pub struct MQTTconfig {
+    /// Hostname/IP to the MQTT broker where the desired state message would be posted
+    #[clap(long = "mqtt-broker-host", default_value = "localhost")]
+    ip: String,
+
+    /// Port for the MQTT broker
+    #[clap(long = "mqtt-broker-port", default_value_t = 1883)]
+    port: u16,
+
+    /// Topic on which to subscribe for the desired state message
+    #[clap(long = "mqtt-topic", default_value = "test/topic")]
+    topic: String,
 }
 
 static CONN_RETRY_BASE_TIMEOUT_MS: u64 = 100;
@@ -289,7 +307,7 @@ async fn main() -> Result<()> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let cli = CliArgs::parse();
+    let cli = Arc::new(CliArgs::parse());
     log::debug!("{:#?}", cli);
 
     let socket_path = String::from(cli.socket_cm.to_string_lossy());
@@ -308,9 +326,7 @@ async fn main() -> Result<()> {
 
     log::info!("Running initial deployment of {:#?}", manifests_path);
 
-    static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
-    thread::spawn(|| mqtt_listener::mqtt_main(&THREAD_TERMINATE_FLAG));
-
+    
     // Do not retry by default (CLI tool)
     let mut retry_times = RetryTimes::Never;
 
@@ -322,16 +338,19 @@ async fn main() -> Result<()> {
 
     // One-shot deployment of all manifests in directory
     deploy_directory(&manifests_path, &socket_path, retry_times).await?;
-
+    
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
+        static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
+        thread::spawn({
+            let cli = cli.clone();
+            || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)
+        });
         log::info!(
             "Running in daemon mode. Continuously monitoring {:#?}",
             manifests_path
         );
-        fs_watcher::async_watch(&THREAD_TERMINATE_FLAG, 
-            &manifests_path, 
-            |e| async {
+        fs_watcher::async_watch(&THREAD_TERMINATE_FLAG, &manifests_path, |e| async {
             redeploy_on_change(e, &socket_path).await
         })
         .await?
