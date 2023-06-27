@@ -98,8 +98,8 @@ pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -
             "The lock at {:?} does not exist, but KAD was started with the MQTT client \
         option. MQTT listener will not be started, but KAD will still run in daemon mode. \
         If running as a system service this might mean KAD has previously seen the desired \
-        state MQTT message and has auto-disabled itself to avoid conflicts with CUA and might \
-        lead to unexpected behavior.",
+        state MQTT message and has auto-disabled itself to avoid conflicts with CUA and using \
+        it might lead to unexpected behavior.",
             *LOCK_PATH
         );
         return Ok(());
