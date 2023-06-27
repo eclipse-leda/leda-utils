@@ -30,9 +30,9 @@ fn kad_enabled(lock: &PathBuf) -> bool {
 fn disable_kad(lock_path: &PathBuf) -> Result<()> {
     let mut disabled_lock_path = lock_path.clone();
 
-    if !lock_path.is_file() {
+    if !kad_enabled(lock_path) {
         return Err(anyhow!(
-            "{:?} is not a regular file or does not exist",
+            "Lock {:?} is not a regular file or does not exist",
             lock_path
         ));
     }
