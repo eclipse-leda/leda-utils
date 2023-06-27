@@ -5,7 +5,7 @@ use rumqttc::{self, Client, Event::Incoming, MqttOptions, Packet::Publish, QoS};
 use serde_json::{self, Value};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,12 +25,12 @@ lazy_static! {
     };
 }
 
-fn kad_enabled(lock: &PathBuf) -> bool {
+fn kad_enabled(lock: &Path) -> bool {
     lock.exists() && lock.is_file()
 }
 
-fn disable_kad(lock_path: &PathBuf) -> Result<()> {
-    let mut disabled_lock_path = lock_path.clone();
+fn disable_kad(lock_path: &Path) -> Result<()> {
+    let mut disabled_lock_path = lock_path.to_path_buf();
 
     if !kad_enabled(lock_path) {
         return Err(anyhow!(
@@ -51,7 +51,7 @@ fn disable_kad(lock_path: &PathBuf) -> Result<()> {
 
 fn handle_mqtt_payload(
     payload: &[u8],
-    lock_path: &PathBuf,
+    lock_path: &Path,
     thread_terminate_flag: &AtomicBool,
 ) -> Result<()> {
     // Listen when VUM starts "identifying" what actions it should take and exit
@@ -63,14 +63,13 @@ fn handle_mqtt_payload(
         .ok_or_else(|| anyhow!("Expected string value for key {VUM_STATUS_JSON_KEY}"))?
         .eq(VUM_STATUS_IDENTIFYING);
 
-    // Only if an actual termination request is received, update the atomic flag
-    if terminate_flag_mqtt {
-        if let Err(e) = disable_kad(&lock_path) {
-            log::error!("Could not set KAD lock to disabled: {e}")
-        }
-        thread_terminate_flag.store(true, Ordering::Relaxed);
+    if !terminate_flag_mqtt {
+        return Err(anyhow!("Unexpected value for {VUM_STATUS_JSON_KEY}"));
     }
+    disable_kad(lock_path)?;
 
+    // Will only be reached if everything above was successful
+    thread_terminate_flag.store(true, Ordering::Relaxed);
     Ok(())
 }
 
@@ -120,9 +119,11 @@ pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -
         // We only care about incoming messages
         if let Ok(msg) = notification {
             if let Incoming(Publish(pub_msg)) = msg {
-                let _r = handle_mqtt_payload(&pub_msg.payload, &LOCK_PATH, thread_terminate_flag);
-                if let Err(e) = _r {
-                    log::debug!("MQTT message parsing error: {e}")
+                match handle_mqtt_payload(&pub_msg.payload, &LOCK_PATH, thread_terminate_flag) {
+                    Err(e) => {
+                        log::debug!("MQTT payload handling error: {e}")
+                    }
+                    Ok(_) => return Ok(()), // Desired state message found, exit MQTT thread
                 }
             }
         } else {
