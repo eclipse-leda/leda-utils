@@ -83,8 +83,8 @@ pub struct MQTTconfig {
     #[clap(long = "mqtt-broker-port", default_value_t = 1883)]
     port: u16,
 
-    /// Topic on which to subscribe for the desired state message
-    #[clap(long = "mqtt-topic", default_value = "test/topic")]
+    /// Topic on which to subscribe for the desired state message feedback
+    #[clap(long = "mqtt-topic", default_value = "update/desiredstatefeedback")]
     topic: String,
 }
 

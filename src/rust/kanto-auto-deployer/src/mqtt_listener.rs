@@ -11,7 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 static SERVICE_ID: &str = "kanto_auto_deployer";
-static TERMINATE_KEY_JSON: &str = "terminate";
+static VUM_STATUS_JSON_KEY: &str = "status";
+// We let VUM take over when it starts identifying what needs to be done for an update.
+static VUM_STATUS_IDENTIFYING: &str = "IDENTIFYING";
 static RECONNECT_TIMEOUT: u64 = 2;
 
 lazy_static! {
@@ -52,14 +54,14 @@ fn handle_mqtt_payload(
     lock_path: &PathBuf,
     thread_terminate_flag: &AtomicBool,
 ) -> Result<()> {
-    // We don't care about non-json messages
+    // Listen when VUM starts "identifying" what actions it should take and exit
+    // Errs short-circuit.
     let terminate_flag_mqtt = serde_json::from_slice::<HashMap<String, Value>>(payload)?
-        .get(TERMINATE_KEY_JSON)
-        .ok_or_else(|| {
-            anyhow!("MQTT message is valid json, but does not contain key {TERMINATE_KEY_JSON}")
-        })?
-        .as_bool()
-        .ok_or_else(|| anyhow!("Expected boolean type for value for key {TERMINATE_KEY_JSON}"))?;
+        .get(VUM_STATUS_JSON_KEY)
+        .ok_or_else(|| anyhow!("Message does not contain key {VUM_STATUS_JSON_KEY}"))?
+        .as_str()
+        .ok_or_else(|| anyhow!("Expected string value for key {VUM_STATUS_JSON_KEY}"))?
+        .eq(VUM_STATUS_IDENTIFYING);
 
     // Only if an actual termination request is received, update the atomic flag
     if terminate_flag_mqtt {
