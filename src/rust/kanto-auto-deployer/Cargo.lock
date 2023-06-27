@@ -672,6 +672,7 @@ dependencies = [
  "env_logger",
  "glob",
  "json-patch",
+ "lazy_static",
  "log",
  "notify",
  "prost",

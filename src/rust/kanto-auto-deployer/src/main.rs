@@ -350,7 +350,6 @@ async fn main() -> Result<()> {
         static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
         #[cfg(feature = "mqtt")]
         if cli.mqtt.enabled {
-            log::info!("MQTT for daemon mode enabled. Will auto-disable whenever VUM takes over.");
             thread::spawn({
                 let cli = cli.clone();
                 || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)

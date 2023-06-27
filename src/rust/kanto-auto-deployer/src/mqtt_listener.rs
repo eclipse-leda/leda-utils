@@ -1,5 +1,6 @@
 use crate::CliArgs;
 use anyhow::{anyhow, Result};
+use lazy_static::lazy_static;
 use rumqttc::{self, Client, Event::Incoming, MqttOptions, Packet::Publish, QoS};
 use serde_json::{self, Value};
 use std::collections::HashMap;
@@ -7,25 +8,23 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
 use std::time::Duration;
 
 static SERVICE_ID: &str = "kanto_auto_deployer";
-static LOCK_NAME: &str = "KAD.enabled";
 static TERMINATE_KEY_JSON: &str = "terminate";
 static RECONNECT_TIMEOUT: u64 = 2;
 
-fn obtain_lock_path(cli_config: &CliArgs) -> Result<PathBuf> {
-    let manifests_dir = fs::canonicalize(cli_config.manifests_path.clone())?;
-    let lock_full = manifests_dir.join(LOCK_NAME);
-    if lock_full.is_file() {
-        return Ok(lock_full);
-    } else {
-        return Err(anyhow!(
-            "Path {:?} does not exist or is not a file!",
-            lock_full
-        ));
-    }
+lazy_static! {
+    static ref LOCK_PATH: PathBuf = {
+        match std::option_env!("KAD_LOCK_PATH") {
+            Some(p) => PathBuf::from(p),
+            None => PathBuf::from("/var/lib/kanto-auto-deployer/KAD.enabled"),
+        }
+    };
+}
+
+fn kad_enabled(lock: &PathBuf) -> bool {
+    lock.exists() && lock.is_file()
 }
 
 fn disable_kad(lock_path: &PathBuf) -> Result<()> {
@@ -94,17 +93,18 @@ pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -
         &cli_config.mqtt
     );
 
-    let lock_path;
-    match obtain_lock_path(&cli_config) {
-        Ok(lock) => {
-            lock_path = lock;
-        }
-        Err(e) => {
-            log::error!("Could not obtain {LOCK_NAME}. Will continue running in daemon mode \
-            but will not start the MQTT listener. Err: {e}");
-            return Ok(());
-        }
+    if !kad_enabled(&LOCK_PATH) {
+        log::error!(
+            "The lock at {:?} does not exist, but KAD was started with the MQTT client \
+        option. MQTT listener will not be started, but KAD will still run in daemon mode. \
+        If running as a system service this might mean KAD has previously seen the desired \
+        state MQTT message and has auto-disabled itself to avoid conflicts with CUA and might \
+        lead to unexpected behavior.",
+            *LOCK_PATH
+        );
+        return Ok(());
     }
+    log::info!("MQTT for daemon mode enabled. Will auto-disable whenever VUM takes over.");
 
     let mut mqttoptions = MqttOptions::new(SERVICE_ID, &cli_config.mqtt.ip, cli_config.mqtt.port);
     mqttoptions.set_keep_alive(Duration::from_secs(5));
@@ -118,7 +118,7 @@ pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -
         // We only care about incoming messages
         if let Ok(msg) = notification {
             if let Incoming(Publish(pub_msg)) = msg {
-                let _r = handle_mqtt_payload(&pub_msg.payload, &lock_path, thread_terminate_flag);
+                let _r = handle_mqtt_payload(&pub_msg.payload, &LOCK_PATH, thread_terminate_flag);
                 if let Err(e) = _r {
                     log::debug!("MQTT message parsing error: {e}")
                 }
