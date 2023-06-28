@@ -43,7 +43,7 @@ setup() {
     run sdv-motd
     assert_output --partial 'Interface :'
     assert_output --partial 'eth0'
-    assert_output --partial 'IP Address:'
+    assert_output --partial 'IPv4 Address:'
     assert_output --partial '172.18.0.2'
 }
 
