@@ -2,8 +2,8 @@ use crate::CliArgs;
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
 use rumqttc::{self, Client, Event::Incoming, MqttOptions, Packet::Publish, QoS};
-use serde_json::{self, Value};
-use std::collections::HashMap;
+use serde::{self, Deserialize, Serialize};
+use serde_json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,7 +11,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 static SERVICE_ID: &str = "kanto_auto_deployer";
-static VUM_STATUS_JSON_KEY: &str = "status";
 // We let VUM take over when it starts identifying what needs to be done for an update.
 static VUM_STATUS_IDENTIFYING: &str = "IDENTIFYING";
 static RECONNECT_TIMEOUT: u64 = 2;
@@ -24,6 +23,22 @@ lazy_static! {
         }
     };
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct VUMmsg<T> {
+    #[serde(alias = "activityId")]
+    activity_id: String,
+    timestamp: u64,
+    payload: T,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct FeedBackPayload {
+    status: String,
+    // We don't care about the rest of the fields
+}
+
+type FeedBackMsg = VUMmsg<FeedBackPayload>;
 
 fn kad_enabled(lock: &Path) -> bool {
     lock.exists() && lock.is_file()
@@ -54,17 +69,16 @@ fn handle_mqtt_payload(
     lock_path: &Path,
     thread_terminate_flag: &AtomicBool,
 ) -> Result<()> {
-    // Listen when VUM starts "identifying" what actions it should take and exit
-    // Errs short-circuit.
-    let terminate_flag_mqtt = serde_json::from_slice::<HashMap<String, Value>>(payload)?
-        .get(VUM_STATUS_JSON_KEY)
-        .ok_or_else(|| anyhow!("Message does not contain key {VUM_STATUS_JSON_KEY}"))?
-        .as_str()
-        .ok_or_else(|| anyhow!("Expected string value for key {VUM_STATUS_JSON_KEY}"))?
+    // Listen when VUM starts "identifying" what actions it should take.
+    let terminate_flag_mqtt = serde_json::from_slice::<FeedBackMsg>(payload)?
+        .payload
+        .status
         .eq(VUM_STATUS_IDENTIFYING);
 
     if !terminate_flag_mqtt {
-        return Err(anyhow!("Unexpected value for {VUM_STATUS_JSON_KEY}"));
+        return Err(anyhow!(
+            "Expected status:\"{VUM_STATUS_IDENTIFYING}\" for status"
+        ));
     }
     disable_kad(lock_path)?;
 
@@ -116,11 +130,12 @@ pub fn mqtt_main(cli_config: Arc<CliArgs>, thread_terminate_flag: &AtomicBool) -
     client.subscribe(&cli_config.mqtt.topic, QoS::ExactlyOnce)?;
 
     for notification in connection.iter() {
-        // We only care about incoming messages
         if let Ok(msg) = notification {
+            // We only care about incoming messages
             if let Incoming(Publish(pub_msg)) = msg {
                 match handle_mqtt_payload(&pub_msg.payload, &LOCK_PATH, thread_terminate_flag) {
                     Err(e) => {
+                        // Message with status VUM_STATUS_IDENTIFYING not found, continue listening
                         log::debug!("MQTT payload handling error: {e}")
                     }
                     Ok(_) => return Ok(()), // Desired state message found, exit MQTT thread
