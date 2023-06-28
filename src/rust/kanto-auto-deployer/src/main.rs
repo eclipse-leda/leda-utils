@@ -11,19 +11,22 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 use glob::glob;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::{fs, thread};
 
 use anyhow::Result;
-use clap::{Args, Parser};
+use clap::Parser;
 use std::sync::atomic::AtomicBool;
 use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
 use tower::service_fn;
 
-pub mod manifest_parser;
+#[cfg(feature = "mqtt")]
+use clap::Args;
+#[cfg(feature = "mqtt")]
+use std::thread;
 
 #[cfg(feature = "mqtt")]
 pub mod mqtt_listener;
@@ -36,6 +39,8 @@ pub mod containers {
 pub mod fs_watcher;
 #[cfg(feature = "filewatcher")]
 use fs_watcher::is_filetype;
+
+pub mod manifest_parser;
 
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
