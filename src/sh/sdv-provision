@@ -13,6 +13,7 @@
 # ********************************************************************************/
 # shellcheck disable=SC3043
 # shellcheck disable=SC2039
+# shellcheck disable=SC2010
 
 # Generating dummy device certificates (self-signed) according to tutorial
 # https://learn.microsoft.com/en-us/azure/iot-hub/tutorial-x509-self-sign
@@ -20,7 +21,7 @@
 #set -x
 
 echo "Checking Eclipse Leda Device Provisioning configuration..."
-    
+
 DEVICE_ID_FILE="/etc/deviceid"
 CERT_DIR="/data/var/certificates"
 
@@ -48,11 +49,11 @@ KEY_FILE2="${CERT_DIR}/device2.key"
 loadDeviceId() {
     echo "Checking Device ID"
 
-    NET_DEV=$(ip route | grep default | sed -e "s/^.*dev.//" -e "s/.proto.*//")
+    NET_DEV=$(ls -lg /sys/class/net/ | grep -Fv -e virtual -e can | awk 'FNR==2 {print $8}')
     echo "- Based on network device: ${NET_DEV}"
 
     if [ -z "${NET_DEV}" ]; then
-        echo "Missing network device or default route on network device, aborting"
+        echo "Missing network device, aborting."
         exit 1
     fi
 
@@ -61,7 +62,7 @@ loadDeviceId() {
     then
         echo "- File does not exist, creating: ${DEVICE_ID_FILE}"
         DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/"${NET_DEV}"/address)
-        echo "${DEVICE_ID}" > /etc/deviceid
+        echo "${DEVICE_ID}" > "${DEVICE_ID_FILE}"
     fi
 
     # Fallback, in case we do not have write access to /etc
@@ -69,7 +70,7 @@ loadDeviceId() {
     then
         DEVICE_ID=$(sed 's/\:/\-/g' /sys/class/net/"${NET_DEV}"/address)
     else
-        DEVICE_ID=$(cat /etc/deviceid)
+        DEVICE_ID=$(cat "${DEVICE_ID_FILE}")
     fi
 
     echo "- Device ID: ${DEVICE_ID}"
@@ -81,7 +82,7 @@ generateDeviceCertificates() {
     DEVICE_CSR_1=$(mktemp -t leda-device1-csr-XXXXXX)
     DEVICE_CERT_1=$(mktemp -t leda-device1-crt-XXXXXX)
     DEVICE_KEY_1=$(mktemp -t leda-device1-key-XXXXXX)
-    
+
     DEVICE_CSR_2=$(mktemp -t leda-device2-csr-XXXXXX)
     DEVICE_CERT_2=$(mktemp -t leda-device2-crt-XXXXXX)
     DEVICE_KEY_2=$(mktemp -t leda-device2-key-XXXXXX)
@@ -149,7 +150,7 @@ configureIdScope() {
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
             local tmp
             tmp=$(mktemp -t leda-idscope-XXXXXX)
-            
+
             # Add the environment variable ("ID_SCOPE=xxx") to the JSON Array in the cloudconnector.json
             # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
             jq ".config.env += [\"ID_SCOPE=$idscope\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
@@ -161,7 +162,7 @@ configureIdScope() {
         fi
         echo "The id scope does not seem to be valid, please enter a valid id scope"
     done
-    
+
 }
 
 configureConnectionString() {
@@ -179,7 +180,7 @@ configureConnectionString() {
             local targetjson="${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
             local tmp
             tmp=$(mktemp -t leda-idscope-XXXXXX)
-            
+
             # Add the environment variable ("CONNECTION_STRING=xxx") to the JSON Array in the cloudconnector.json
             # Warning: If not using the .json.template file, it may add the line twice when rerunning the script
             jq ".config.env += [\"CONNECTION_STRING=$connectionstring\"]" "${sourcejson}" > "$tmp" && mv "$tmp" "${targetjson}"
@@ -209,7 +210,7 @@ ensureIdScopeOrConnectionString() {
             echo "ERROR: Id Scope not found in cloudconnector deployment descriptor ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}"
         fi
     fi
-    
+
     if [ -f ${DATA_AZURE_CONNECTION_STRING_FILE} ]; then
         echo "- ConnectionString file found: ${DATA_AZURE_CONNECTION_STRING_FILE}"
         if grep -q "$(cat ${DATA_AZURE_CONNECTION_STRING_FILE})" ${CLOUDCONNECTOR_DEPLOYMENT_DESCRIPTOR}; then
