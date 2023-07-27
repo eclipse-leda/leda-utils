@@ -40,9 +40,14 @@ jobs:
         with:
           fail_on_unmatched_files: true
           files: |
-            ${{steps.download.outputs.download-path}}/kantui-debian/eclipse-leda-kantui_*_amd64.deb
-            ${{steps.download.outputs.download-path}}/kantui-debian/eclipse-leda-kantui_*_arm64.deb
-            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-debian/eclipse-leda-kanto-auto-deployer_*_amd64.deb
-            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-debian/eclipse-leda-kanto-auto-deployer_*_arm64.deb
-            ${{steps.download.outputs.download-path}}/leda-utils-debian/eclipse-leda-utils*.deb
-
+            ${{steps.download.outputs.download-path}}/kantui-packages/eclipse-leda-kantui_*_amd64.deb
+            ${{steps.download.outputs.download-path}}/kantui-packages/eclipse-leda-kantui_*_arm64.deb
+            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-packages/eclipse-leda-kanto-auto-deployer_*_amd64.deb
+            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-packages/eclipse-leda-kanto-auto-deployer_*_arm64.deb
+            ${{steps.download.outputs.download-path}}/leda-utils-packages/eclipse-leda-utils*.deb
+            ${{steps.download.outputs.download-path}}/kantui-packages/eclipse-leda-kantui*.x86_64.rpm
+            ${{steps.download.outputs.download-path}}/kantui-packages/eclipse-leda-kantui*.arm64.rpm
+            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-packages/eclipse-leda-kanto-auto-deployer*.x86_64.rpm
+            ${{steps.download.outputs.download-path}}/kanto-auto-deployer-packages/eclipse-leda-kanto-auto-deployer*.arm64.rpm
+            ${{steps.download.outputs.download-path}}/leda-utils-packages/eclipse-leda-utils*.noarch.rpm
+            
