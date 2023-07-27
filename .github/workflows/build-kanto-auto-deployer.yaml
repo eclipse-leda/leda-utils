@@ -107,7 +107,7 @@ jobs:
           sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
       - uses: actions/upload-artifact@v3
         with:
-          name: kanto-auto-deployer-debian
+          name: kanto-auto-deployer-packages
           path: |
             ./*.deb
             ./*.rpm
