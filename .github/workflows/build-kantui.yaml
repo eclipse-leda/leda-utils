@@ -40,7 +40,7 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler alien
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
@@ -105,8 +105,12 @@ jobs:
           arch: '${{ env.package_arch }}'
           depends: 'libc6'
           desc: 'Text user interface (cli) for Eclipse Kanto Container Management'
+      - name: Convert deb to rpm
+        run: |
+          sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
       - uses: actions/upload-artifact@v3
         with:
-          name: kantui-debian
+          name: kantui-packages
           path: 
             ./*.deb
+            ./*.rpm
