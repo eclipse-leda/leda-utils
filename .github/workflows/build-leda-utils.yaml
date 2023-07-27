@@ -93,7 +93,7 @@ jobs:
           sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
       - uses: actions/upload-artifact@v3
         with:
-          name: leda-utils-debian
+          name: leda-utils-packages
           path: |
             ./*.deb
             ./*.rpm
