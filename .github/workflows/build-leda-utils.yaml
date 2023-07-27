@@ -31,6 +31,10 @@ jobs:
         with:
           submodules: 'recursive'
           fetch-depth: 0
+      - name: Install Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y alien
       - name: Run ShellCheck
         uses: azohra/shell-linter@latest
         with:
@@ -84,9 +88,13 @@ jobs:
           version: '${{ env.package_version }}'
           arch: 'all'
           desc: 'Shell utilities for Eclipse Leda (Software-Defined Vehicle)'
+      - name: Convert deb to rpm
+        run: |
+          sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
       - uses: actions/upload-artifact@v3
         with:
           name: leda-utils-debian
-          path: 
+          path: |
             ./*.deb
+            ./*.rpm
 
