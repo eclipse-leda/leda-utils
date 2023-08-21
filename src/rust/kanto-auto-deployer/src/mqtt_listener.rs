@@ -37,7 +37,7 @@ lazy_static! {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct VUMmsg<T> {
+struct VUMEnvelope<T> {
     #[serde(alias = "activityId")]
     activity_id: String,
     timestamp: u64,
@@ -45,12 +45,12 @@ struct VUMmsg<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct FeedBackPayload {
+struct FeedbackPayload {
     status: String,
     // We don't care about the rest of the fields
 }
 
-type FeedBackMsg = VUMmsg<FeedBackPayload>;
+type FeedbackMsg = VUMEnvelope<FeedbackPayload>;
 
 fn kad_enabled(lock: &Path) -> bool {
     lock.exists() && lock.is_file()
@@ -82,7 +82,7 @@ fn handle_mqtt_payload(
     thread_terminate_flag: &AtomicBool,
 ) -> Result<()> {
     // Listen when VUM starts "identifying" what actions it should take.
-    let terminate_flag_mqtt = serde_json::from_slice::<FeedBackMsg>(payload)?
+    let terminate_flag_mqtt = serde_json::from_slice::<FeedbackMsg>(payload)?
         .payload
         .status
         .eq(VUM_STATUS_IDENTIFYING);
