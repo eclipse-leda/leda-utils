@@ -89,7 +89,10 @@ pub struct MQTTconfig {
     port: u16,
 
     /// Topic on which to subscribe for the desired state message feedback
-    #[clap(long = "mqtt-topic", default_value = "containersupdate/desiredstatefeedback")]
+    #[clap(
+        long = "mqtt-topic",
+        default_value = "containersupdate/desiredstatefeedback"
+    )]
     topic: String,
 }
 
