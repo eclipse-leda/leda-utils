@@ -89,7 +89,7 @@ fn handle_mqtt_payload(
 
     if !terminate_flag_mqtt {
         return Err(anyhow!(
-            "Expected status:\"{VUM_STATUS_IDENTIFYING}\" for status"
+            "Expected status:\"{VUM_STATUS_IDENTIFIED}\" for status"
         ));
     }
     disable_kad(lock_path)?;
