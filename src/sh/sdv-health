@@ -39,7 +39,7 @@ SDV_SERVICES_OPT="sshd.socket systemd-networkd systemd-timesyncd"
 
 # Default list of requred SDV Docker containers
 KANTO_CM_CONTAINERS="cloudconnector databroker vum sua "
-KANTO_CM_CONTAINERS_OPT="seatservice-example hvacservice-example feedercan otelcol-sdv-exporter otelcol-sdv-agent "
+KANTO_CM_CONTAINERS_OPT="seatservice-example hvacservice-example feedercan feedergps otelcol-sdv-exporter otelcol-sdv-agent "
 # Change internet connectivity check host
 SDV_PING_HOST="1.1.1.1"
 
