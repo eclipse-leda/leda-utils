@@ -23,8 +23,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 static SERVICE_ID: &str = "kanto_auto_deployer";
-// We let VUM take over when it starts identifying what needs to be done for an update.
-static VUM_STATUS_IDENTIFYING: &str = "IDENTIFYING";
+// We let CUA take over when it has identified what it should do
+static VUM_STATUS_IDENTIFIED: &str = "IDENTIFIED";
 static RECONNECT_TIMEOUT: u64 = 2;
 
 lazy_static! {
@@ -85,7 +85,7 @@ fn handle_mqtt_payload(
     let terminate_flag_mqtt = serde_json::from_slice::<FeedbackMsg>(payload)?
         .payload
         .status
-        .eq(VUM_STATUS_IDENTIFYING);
+        .eq(VUM_STATUS_IDENTIFIED);
 
     if !terminate_flag_mqtt {
         return Err(anyhow!(
