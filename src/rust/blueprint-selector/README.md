@@ -71,3 +71,13 @@ If you decide to change the default blueprints directory, run:
 ```shell
     $ DEFAULT_BLUEPRINTS_DIR="/new/default/path" cargo build --release
 ```
+
+# Running the example
+
+After compiling the binary you can run the selector on the `example_blueprints`` directory as so
+
+```shell
+
+  blueprint-selector -d example_blueprints
+
+```
