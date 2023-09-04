@@ -24,7 +24,7 @@ The selected blueprint is then published as an MQTT message on the `vehicleupdat
 
 # CLI options
 
-To get all available MQTT use the `--help/-h` flag:
+To get all available configuration options use the `--help/-h` flag:
 
 ```shell
 $ blueprint-selector --help
@@ -74,7 +74,7 @@ If you decide to change the default blueprints directory, run:
 
 # Running the example
 
-After compiling the binary you can run the selector on the `example_blueprints`` directory as so
+After compiling the binary you can run the selector on the `example_blueprints` directory as so
 
 ```shell
 
