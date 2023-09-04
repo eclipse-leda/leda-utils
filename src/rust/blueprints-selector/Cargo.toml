@@ -1,0 +1,19 @@
+[package]
+name = "blueprint-selector"
+version = "0.1.0"
+edition = "2021"
+description = "A user-friendly tool to select and deploy SDV blueprints"
+authors = ["Vasil Ivanov vasil.ivanov3@bosch.com"]
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+clap = { version = "=4.2.5", features = ["derive"] }
+inquire = "0.6.2"
+lazy_static = "1.4.0"
+rumqttc = "0.22.0"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = {version = "1.0.105", features = ["preserve_order"] }
+walkdir = "2.3.3"

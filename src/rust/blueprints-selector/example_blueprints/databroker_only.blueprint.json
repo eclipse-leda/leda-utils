@@ -1,0 +1,27 @@
+{ 
+  "blueprintMetadata": {
+    "name": "Databroker only",
+    "description": "Deploy only the Kuksa Databroker"
+  },
+  "activityId": "databroker-only",
+  "payload": {
+    "domains": [
+      {
+        "id": "containers",
+        "config": [],
+        "components": [
+          {
+            "id": "databroker",
+            "version": "0.3.0",
+            "config": [
+              {
+                "key": "image",
+                "value": "ghcr.io/eclipse/kuksa.val/databroker:0.3.0"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
