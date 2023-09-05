@@ -13,7 +13,7 @@
 
 use anyhow::{anyhow, Result};
 use clap::{Args, Parser};
-use inquire::Select;
+use inquire::{Select, Text};
 use lazy_static::lazy_static;
 use rumqttc::{mqttbytes::v4::Packet, Client, Event, MqttOptions, QoS};
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{fmt::Display, fs::File};
 use walkdir::WalkDir;
+
+use crate::blueprint_fetchers::Fetcher;
+
+pub mod blueprint_fetchers;
 
 // Makes it easier when building through BitBake recipes to change the default look-up location and enable
 // calling with zero arguments from the end user.
@@ -83,6 +87,9 @@ struct CLIargs {
     #[arg(short = 'd', long = "blueprints-dir", default_value=*DEFAULT_BLUEPRINTS_DIR)]
     blueprints_dir: PathBuf,
 
+    #[arg(short = 'f', long = "fetch-blueprints", default_value_t=false)]
+    update_blueprints: bool,
+
     /// Extension to use when iterating over the files in the blueprints directory
     #[arg(
         short = 'e',
@@ -137,8 +144,17 @@ fn publish_blueprint(message: &str, mqtt_conf: &MQTTconfig) -> Result<()> {
 
 fn main() -> Result<()> {
     let cli = CLIargs::parse();
-    let blueprint_options = load_blueprints(&cli.blueprints_dir, &cli.blueprint_extension);
 
+    if cli.update_blueprints {
+        println!("You have started blueprint-selector in fetch mode. Choose the way you would like to fetch a new/updated blueprint.");
+        let fetcher_kind = Select::new("Choose the type of fetcher you would like to use", blueprint_fetchers::FetcherKind::get_variants_list()).prompt()?;
+        let uri = Text::new("Enter the uri from which you like to fetch").prompt()?;
+        let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
+        fetcher.fetch()?;
+        println!("Successfully downloaded!")
+    }
+
+    let blueprint_options = load_blueprints(&cli.blueprints_dir, &cli.blueprint_extension);
     let blueprint = Select::new(
         "Choose a SDV blueprint which you would like to deploy:",
         blueprint_options,
@@ -150,7 +166,6 @@ fn main() -> Result<()> {
         blueprint.metadata.name, cli.mqtt.topic
     );
     let message = serde_json::to_string(&blueprint)?;
-
     publish_blueprint(&message, &cli.mqtt)?;
 
     Ok(())
