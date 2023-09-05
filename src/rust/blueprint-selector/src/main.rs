@@ -122,8 +122,8 @@ fn publish_blueprint(message: &str, mqtt_conf: &MQTTconfig) -> Result<()> {
     let (mut client, mut connection) = Client::new(mqttoptions, 10);
     client.publish(&mqtt_conf.topic, QoS::ExactlyOnce, false, message)?;
 
-    // Spin the event loop and wait for packet acknowledment
-    for (_i, notification) in connection.iter().enumerate() {
+    // Spin the event loop and wait for pub completed packet
+    for notification in connection.iter() {
         if let Event::Incoming(Packet::PubComp(_msg)) = notification? {
             println!("Succesfully published blueprint.");
             return Ok(());
@@ -137,19 +137,11 @@ fn main() -> Result<()> {
     let cli = CLIargs::parse();
     let blueprint_options = load_blueprints(&cli.blueprints_dir, &cli.blueprint_extension);
 
-    let selection_result = Select::new(
+    let blueprint = Select::new(
         "Choose a SDV blueprint which you would like to deploy:",
         blueprint_options,
     )
-    .prompt();
-
-    let blueprint = match selection_result {
-        Ok(blueprint) => blueprint,
-        Err(e) => {
-            println!("Exiting abruptly: {}.", e);
-            std::process::exit(1);
-        }
-    };
+    .prompt()?;
 
     println!(
         "Publishing blueprint \"{}\" on topic \"{}\".",
