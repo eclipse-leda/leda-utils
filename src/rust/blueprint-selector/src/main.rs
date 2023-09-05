@@ -87,9 +87,6 @@ struct CLIargs {
     #[arg(short = 'd', long = "blueprints-dir", default_value=*DEFAULT_BLUEPRINTS_DIR)]
     blueprints_dir: PathBuf,
 
-    #[arg(short = 'f', long = "fetch-blueprints", default_value_t=false)]
-    update_blueprints: bool,
-
     /// Extension to use when iterating over the files in the blueprints directory
     #[arg(
         short = 'e',
@@ -97,6 +94,11 @@ struct CLIargs {
         default_value = ".blueprint.json"
     )]
     blueprint_extension: String,
+
+    /// Start in fetch mode (presents a menu to fetch new/updated blueprints) from a remote repository
+    #[arg(short = 'f', long = "fetch-blueprints", default_value_t = false)]
+    update_blueprints: bool,
+
 
     #[clap(flatten)]
     mqtt: MQTTconfig,
@@ -147,7 +149,11 @@ fn main() -> Result<()> {
 
     if cli.update_blueprints {
         println!("You have started blueprint-selector in fetch mode. Choose the way you would like to fetch a new/updated blueprint.");
-        let fetcher_kind = Select::new("Choose the type of fetcher you would like to use", blueprint_fetchers::FetcherKind::get_variants_list()).prompt()?;
+        let fetcher_kind = Select::new(
+            "Choose the type of fetcher you would like to use",
+            blueprint_fetchers::FetcherKind::get_variants_list(),
+        )
+        .prompt()?;
         let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
         let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
         fetcher.fetch()?;

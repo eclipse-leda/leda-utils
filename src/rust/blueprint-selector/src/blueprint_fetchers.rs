@@ -1,27 +1,32 @@
-use std::{fs, fmt::Display, path::Path, rc::Rc};
 use anyhow::{anyhow, Result};
-use strum::{IntoEnumIterator, EnumIter};
-use reqwest::{Url, blocking,};
-use tempdir::TempDir;
 use git2::Repository;
+use reqwest::{blocking, Url};
+use std::{fmt::Display, fs, path::Path, rc::Rc};
+use strum::{EnumIter, IntoEnumIterator};
+use tempdir::TempDir;
 
 #[derive(Debug, EnumIter)]
 pub enum FetcherKind {
     HttpSingleFile,
-    Git
+    Git,
+    FileSystemFolder,
 }
 
 pub struct Fetcher {
     kind: FetcherKind,
     uri: Url,
-    output_dir: Rc<Path>
+    output_dir: Rc<Path>,
 }
 
 impl Display for FetcherKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match  self {
+        match self {
             FetcherKind::HttpSingleFile => write!(f, "Single Blueprint File Over HTTP"),
-            FetcherKind::Git => write!(f, "Clone a Git repository over HTTP(S)")
+            FetcherKind::Git => write!(f, "Clone a Git repository over HTTP(S)"),
+            FetcherKind::FileSystemFolder => write!(
+                f,
+                "Directory on the filesystem (abolute path prefixed with file://)"
+            ),
         }
     }
 }
@@ -33,7 +38,13 @@ fn copy_dir_recursive(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<(
         if entry.file_type()?.is_dir() {
             copy_dir_recursive(entry.path(), dest.as_ref().join(entry.file_name()))?;
         } else {
-            fs::copy(entry.path(), dest.as_ref().join(entry.file_name()))?;
+            // better error traces on which file/entry the copy failed
+            match fs::copy(entry.path(), dest.as_ref().join(entry.file_name())) {
+                Ok(_) => continue,
+                Err(err) => {
+                    return Err(anyhow!("Failed when copying {:#?} with {:#?}", entry, err))
+                }
+            }
         }
     }
     Ok(())
@@ -46,15 +57,24 @@ impl FetcherKind {
 }
 
 impl Fetcher {
-    pub fn new(kind: FetcherKind, uri: &str, output_dir: &Path)-> Result<Self> {
+    pub fn new(kind: FetcherKind, uri: &str, output_dir: &Path) -> Result<Self> {
         let output_dir = Rc::from(std::fs::canonicalize(output_dir)?);
         let uri = Url::parse(uri)?;
-        Ok(Fetcher { kind, uri, output_dir})
+        Ok(Fetcher {
+            kind,
+            uri,
+            output_dir,
+        })
     }
 
     fn http_single_file(self) -> Result<()> {
         // use the last portion of  the path in the url as the filename (similar to wget)
-        let filename = self.uri.path().rsplit("/").next().ok_or_else(|| anyhow!("No file name in path"))?;
+        let filename = self
+            .uri
+            .path()
+            .rsplit('/')
+            .next()
+            .ok_or_else(|| anyhow!("No file name in path"))?;
         let filename = String::from(filename);
         let request_body = blocking::get(self.uri)?.text()?;
         std::fs::write(self.output_dir.join(filename), request_body)?;
@@ -70,15 +90,21 @@ impl Fetcher {
         Ok(())
     }
 
+    fn local_folder(self) -> Result<()> {
+        let source = fs::canonicalize(self.uri.path())?;
+        copy_dir_recursive(source, self.output_dir)?;
+
+        Ok(())
+    }
+
     // move out of self, preventing multiple use of he same fetcher
     pub fn fetch(self) -> Result<()> {
         match self.kind {
             FetcherKind::HttpSingleFile => self.http_single_file()?,
             FetcherKind::Git => self.git_repo()?,
+            FetcherKind::FileSystemFolder => self.local_folder()?,
         }
 
         Ok(())
     }
-
 }
-

@@ -27,7 +27,6 @@ The selected blueprint is then published as an MQTT message on the `vehicleupdat
 To get all available configuration options use the `--help/-h` flag:
 
 ```shell
-$ blueprint-selector --help
 A user-friendly tool to select and deploy SDV blueprints
 
 Usage: blueprint-selector [OPTIONS]
@@ -35,6 +34,8 @@ Usage: blueprint-selector [OPTIONS]
 Options:
   -d, --blueprints-dir <BLUEPRINTS_DIR>
           The directory containing the SDV bluerprints [default: /var/containers/blueprints]
+  -f, --fetch-blueprints
+          Start in fetch mode (presents a menu to fetch new/updated blueprints) from a remote repository
   -e, --blueprints-ext <BLUEPRINT_EXTENSION>
           Extension to use when iterating over the files in the blueprints directory [default: .blueprint.json]
       --mqtt-broker-host <HOST>
@@ -81,3 +82,23 @@ After compiling the binary you can run the selector on the `example_blueprints` 
   blueprint-selector -d example_blueprints
 
 ```
+
+# Fetch mode:
+
+When starting the `blueprint-selector` with the `-f/--fetch-blueprints` flag, you will be presented with a selection of different
+fetchers that allow you to download/update blueprints directly in the directory specified with the `-d/--blueprints-dir` flag.
+For example:
+
+```shell
+  blueprint-selector -fd ./example_blueprints
+```
+
+![Selection](./images/fetcher-selection-screenshot.png)
+
+When you choose a fetcher, you will be asked for an URI and `blueprint-selector` will atempt to fetch the blueprints inside the directory specified by `-d` (in this case `./example_blueprints`).
+
+After providing a URI, pressing Enter and a succesful fetch, you will be brought back to the usual
+selector menu, this time including all successfully fetched manifests.
+
+![Success](./images/fetcher_success.png)
+
