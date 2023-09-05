@@ -148,7 +148,7 @@ fn main() -> Result<()> {
     if cli.update_blueprints {
         println!("You have started blueprint-selector in fetch mode. Choose the way you would like to fetch a new/updated blueprint.");
         let fetcher_kind = Select::new("Choose the type of fetcher you would like to use", blueprint_fetchers::FetcherKind::get_variants_list()).prompt()?;
-        let uri = Text::new("Enter the uri from which you like to fetch").prompt()?;
+        let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
         let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
         fetcher.fetch()?;
         println!("Successfully downloaded!")
