@@ -53,6 +53,8 @@ struct Blueprint {
     payload: Map<String, Value>,
 }
 
+// The select menu uses fmt from the Display trait to obtain the string
+// representation of the type for visualization in the list
 impl Display for Blueprint {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ({})", self.metadata.name, self.metadata.description)
