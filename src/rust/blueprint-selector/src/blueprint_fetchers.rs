@@ -1,4 +1,4 @@
-use std::{fmt::Display, path::Path, rc::Rc};
+use std::{fs, fmt::Display, path::Path, rc::Rc};
 use anyhow::{anyhow, Result};
 use strum::{IntoEnumIterator, EnumIter};
 use reqwest::{Url, blocking,};
@@ -26,15 +26,14 @@ impl Display for FetcherKind {
     }
 }
 
-pub fn copy_recursively(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> Result<()> {
-    std::fs::create_dir_all(&destination)?;
-    for entry in std::fs::read_dir(source)? {
+fn copy_dir_recursive(src: impl AsRef<Path>, dest: impl AsRef<Path>) -> Result<()> {
+    fs::create_dir_all(&dest)?;
+    for entry in fs::read_dir(src)? {
         let entry = entry?;
-        let filetype = entry.file_type()?;
-        if filetype.is_dir() {
-            copy_recursively(entry.path(), destination.as_ref().join(entry.file_name()))?;
+        if entry.file_type()?.is_dir() {
+            copy_dir_recursive(entry.path(), dest.as_ref().join(entry.file_name()))?;
         } else {
-            std::fs::copy(entry.path(), destination.as_ref().join(entry.file_name()))?;
+            fs::copy(entry.path(), dest.as_ref().join(entry.file_name()))?;
         }
     }
     Ok(())
@@ -66,7 +65,7 @@ impl Fetcher {
         let temp_dir = TempDir::new("blueprints_repo")?;
         println!("Cloning into repository.");
         let _repo = Repository::clone(self.uri.as_str(), &temp_dir)?;
-        copy_recursively(&temp_dir, self.output_dir)?;
+        copy_dir_recursive(&temp_dir, self.output_dir)?;
         // temp_dir is a RAII object and is deleted on instance Drop
         Ok(())
     }
