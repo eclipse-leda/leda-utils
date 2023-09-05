@@ -25,7 +25,7 @@ impl Display for FetcherKind {
             FetcherKind::Git => write!(f, "Clone a Git repository over HTTP(S)"),
             FetcherKind::FileSystemFolder => write!(
                 f,
-                "Directory on the filesystem (abolute path prefixed with file://)"
+                "Directory on the filesystem (absolute path prefixed with file://)"
             ),
         }
     }

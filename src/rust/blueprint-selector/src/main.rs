@@ -83,7 +83,7 @@ pub struct MQTTconfig {
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
 struct CLIargs {
-    /// The directory containing the SDV bluerprints
+    /// The directory containing the SDV blueprints
     #[arg(short = 'd', long = "blueprints-dir", default_value=*DEFAULT_BLUEPRINTS_DIR)]
     blueprints_dir: PathBuf,
 
@@ -136,7 +136,7 @@ fn publish_blueprint(message: &str, mqtt_conf: &MQTTconfig) -> Result<()> {
     // Spin the event loop and wait for pub completed packet
     for notification in connection.iter() {
         if let Event::Incoming(Packet::PubComp(_msg)) = notification? {
-            println!("Succesfully published blueprint.");
+            println!("Successfully published blueprint.");
             return Ok(());
         }
     }
