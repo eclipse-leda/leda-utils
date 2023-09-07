@@ -99,7 +99,6 @@ struct CLIargs {
     #[arg(short = 'f', long = "fetch-blueprints", default_value_t = false)]
     update_blueprints: bool,
 
-
     #[clap(flatten)]
     mqtt: MQTTconfig,
 }
@@ -144,23 +143,34 @@ fn publish_blueprint(message: &str, mqtt_conf: &MQTTconfig) -> Result<()> {
     Ok(())
 }
 
+fn run_fetch_dialog(cli: &CLIargs) -> Result<()> {
+    println!("You have started blueprint-selector in fetch mode. Choose the way you would like to fetch a new/updated blueprint.");
+    let fetcher_kind = Select::new(
+        "Choose the type of fetcher you would like to use",
+        blueprint_fetchers::FetcherKind::get_variants_list(),
+    )
+    .prompt()?;
+    let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
+    let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
+    fetcher.fetch()?;
+    Ok(println!("Successfully downloaded!"))
+}
+
 fn main() -> Result<()> {
     let cli = CLIargs::parse();
 
     if cli.update_blueprints {
-        println!("You have started blueprint-selector in fetch mode. Choose the way you would like to fetch a new/updated blueprint.");
-        let fetcher_kind = Select::new(
-            "Choose the type of fetcher you would like to use",
-            blueprint_fetchers::FetcherKind::get_variants_list(),
-        )
-        .prompt()?;
-        let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
-        let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
-        fetcher.fetch()?;
-        println!("Successfully downloaded!")
+        run_fetch_dialog(&cli)?;
     }
 
     let blueprint_options = load_blueprints(&cli.blueprints_dir, &cli.blueprint_extension);
+    if blueprint_options.is_empty() {
+        println!("No valid blueprints found in {:?}! Copy new blueprints there either manually \n\
+        or run in fetch mode with the -f/--fetch-blueprints flag.\n\
+        E.g. {:?} -f -d {:?}", &cli.blueprints_dir, std::env::current_exe()?, &cli.blueprints_dir);
+        std::process::exit(2);
+    }
+
     let blueprint = Select::new(
         "Choose a SDV blueprint which you would like to deploy:",
         blueprint_options,
