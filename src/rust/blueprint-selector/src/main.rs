@@ -153,7 +153,8 @@ fn run_fetch_dialog(cli: &CLIargs) -> Result<()> {
     let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
     let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
     fetcher.fetch()?;
-    Ok(println!("Successfully downloaded!"))
+    println!("Successfully downloaded!");
+    Ok(())
 }
 
 fn main() -> Result<()> {
