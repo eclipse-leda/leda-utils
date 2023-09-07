@@ -23,8 +23,6 @@ use std::time::Duration;
 use std::{fmt::Display, fs::File};
 use walkdir::WalkDir;
 
-use crate::blueprint_fetchers::Fetcher;
-
 pub mod blueprint_fetchers;
 
 // Makes it easier when building through BitBake recipes to change the default look-up location and enable
@@ -151,7 +149,7 @@ fn run_fetch_dialog(cli: &CLIargs) -> Result<()> {
     )
     .prompt()?;
     let uri = Text::new("Enter the uri from which you would like to fetch from").prompt()?;
-    let fetcher = Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
+    let fetcher = blueprint_fetchers::Fetcher::new(fetcher_kind, &uri, &cli.blueprints_dir)?;
     fetcher.fetch()?;
     println!("Successfully downloaded!");
     Ok(())
