@@ -165,9 +165,14 @@ fn main() -> Result<()> {
 
     let blueprint_options = load_blueprints(&cli.blueprints_dir, &cli.blueprint_extension);
     if blueprint_options.is_empty() {
-        println!("No valid blueprints found in {:?}! Copy new blueprints there either manually \n\
+        println!(
+            "No valid blueprints found in {:?}! Copy new blueprints there either manually \n\
         or run in fetch mode with the -f/--fetch-blueprints flag.\n\
-        E.g. {:?} -f -d {:?}", &cli.blueprints_dir, std::env::current_exe()?, &cli.blueprints_dir);
+        E.g. {:?} -f -d {:?}",
+            &cli.blueprints_dir,
+            std::env::current_exe()?,
+            &cli.blueprints_dir
+        );
         std::process::exit(2);
     }
 
