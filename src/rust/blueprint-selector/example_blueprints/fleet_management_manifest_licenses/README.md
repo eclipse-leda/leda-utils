@@ -1,0 +1,1 @@
+Desired state derived from: https://github.com/eclipse-sdv-blueprints/fleet-management/tree/c92aed691b3d4a217572977142c991cc35f4107f/leda/data/var/containers/manifests

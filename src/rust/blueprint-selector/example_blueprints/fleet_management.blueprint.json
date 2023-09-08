@@ -1,0 +1,247 @@
+{
+  "blueprintMetadata": {
+    "name": "Fleet management blueprint",
+    "description": "eclipse-sdv-blueprints/fleet-management"
+  },
+  "activityId": "fleet-management-blueprint",
+  "payload": {
+    "domains": [
+      {
+        "id": "containers",
+        "config": [],
+        "components": [
+          {
+            "id": "csv-provider",
+            "version": "0.4",
+            "config": [
+              {
+                "key": "image",
+                "value": "ghcr.io/eclipse/kuksa.val.feeders/csv-provider:0.4"
+              },
+              {
+                "key": "mount",
+                "value": "/data/usr/fms/csv:/tmp/fms/csv:rprivate"
+              },
+              {
+                "key": "env",
+                "value": "PROVIDER_SIGNALS_FILE=/tmp/fms/csv/signalsFmsRecording.csv"
+              },
+              {
+                "key": "env",
+                "value": "PROVIDER_INFINITE=1"
+              },
+              {
+                "key": "env",
+                "value": "KUKSA_DATA_BROKER_ADDR=databroker"
+              },
+              {
+                "key": "env",
+                "value": "PROVIDER_LOG_LEVEL=INFO"
+              },
+              {
+                "key": "privileged",
+                "value": "false"
+              },
+              {
+                "key": "network",
+                "value": "bridge"
+              },
+              {
+                "key": "host",
+                "value": "databroker:container_databroker-host"
+              },
+              {
+                "key": "restartPolicy",
+                "value": "unless-stopped"
+              },
+              {
+                "key": "restartMaxRetries",
+                "value": "0"
+              },
+              {
+                "key": "restartTimeout",
+                "value": "0"
+              },
+              {
+                "key": "logDriver",
+                "value": "json-file"
+              },
+              {
+                "key": "logMaxFiles",
+                "value": "2"
+              },
+              {
+                "key": "logMaxSize",
+                "value": "1M"
+              },
+              {
+                "key": "logMode",
+                "value": "blocking"
+              },
+              {
+                "key": "terminal",
+                "value": "false"
+              },
+              {
+                "key": "interactive",
+                "value": "false"
+              }
+            ]
+          },
+          {
+            "id": "databroker",
+            "version": "0.3",
+            "config": [
+              {
+                "key": "image",
+                "value": "ghcr.io/eclipse/kuksa.val/databroker:0.3"
+              },
+              {
+                "key": "mount",
+                "value": "/data/usr/fms/databroker:/etc/databroker:rprivate"
+              },
+              {
+                "key": "env",
+                "value": "RUST_LOG=info"
+              },
+              {
+                "key": "env",
+                "value": "KUKSA_DATA_BROKER_METADATA_FILE=/etc/databroker/vss.json"
+              },
+              {
+                "key": "privileged",
+                "value": "false"
+              },
+              {
+                "key": "network",
+                "value": "bridge"
+              },
+              {
+                "key": "port",
+                "value": "localhost:55555:30555-30555/tcp"
+              },
+              {
+                "key": "restartPolicy",
+                "value": "unless-stopped"
+              },
+              {
+                "key": "restartMaxRetries",
+                "value": "0"
+              },
+              {
+                "key": "restartTimeout",
+                "value": "0"
+              },
+              {
+                "key": "logDriver",
+                "value": "json-file"
+              },
+              {
+                "key": "logMaxFiles",
+                "value": "2"
+              },
+              {
+                "key": "logMaxSize",
+                "value": "1M"
+              },
+              {
+                "key": "logMode",
+                "value": "blocking"
+              },
+              {
+                "key": "terminal",
+                "value": "false"
+              },
+              {
+                "key": "interactive",
+                "value": "false"
+              }
+            ]
+          },
+          {
+            "id": "fms-forwarder",
+            "version": "main",
+            "config": [
+              {
+                "key": "image",
+                "value": "ghcr.io/eclipse-sdv-blueprints/fleet-management/fms-forwarder:main"
+              },
+              {
+                "key": "mount",
+                "value": "/data/usr/fms/forwarder:/etc/forwarder:rprivate"
+              },
+              {
+                "key": "env",
+                "value": "RUST_LOG=info,fms_forwarder=debug"
+              },
+              {
+                "key": "env",
+                "value": "KUKSA_DATA_BROKER_URI=http://databroker:55555"
+              },
+              {
+                "key": "env",
+                "value": "INFLUXDB_URI=http://10.0.2.2:8086"
+              },
+              {
+                "key": "env",
+                "value": "INFLUXDB_TOKEN_FILE=/etc/forwarder/influxdb.token"
+              },
+              {
+                "key": "cmd",
+                "value": "influx"
+              },
+              {
+                "key": "privileged",
+                "value": "false"
+              },
+              {
+                "key": "network",
+                "value": "bridge"
+              },
+              {
+                "key": "host",
+                "value": "databroker:container_databroker-host"
+              },
+              {
+                "key": "restartPolicy",
+                "value": "unless-stopped"
+              },
+              {
+                "key": "restartMaxRetries",
+                "value": "0"
+              },
+              {
+                "key": "restartTimeout",
+                "value": "0"
+              },
+              {
+                "key": "logDriver",
+                "value": "json-file"
+              },
+              {
+                "key": "logMaxFiles",
+                "value": "2"
+              },
+              {
+                "key": "logMaxSize",
+                "value": "1M"
+              },
+              {
+                "key": "logMode",
+                "value": "blocking"
+              },
+              {
+                "key": "terminal",
+                "value": "false"
+              },
+              {
+                "key": "interactive",
+                "value": "false"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
