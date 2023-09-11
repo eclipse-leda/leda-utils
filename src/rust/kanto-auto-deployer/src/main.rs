@@ -13,15 +13,23 @@
 use glob::glob;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
-use tower::service_fn;
+use std::sync::atomic::AtomicBool;
 use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
 use tonic::transport::{Endpoint, Uri};
+use tower::service_fn;
 
-pub mod manifest_parser;
+#[cfg(feature = "mqtt")]
+use clap::Args;
+#[cfg(feature = "mqtt")]
+use std::thread;
+
+#[cfg(feature = "mqtt")]
+pub mod mqtt_listener;
 pub mod containers {
     //This is a hack because tonic has an issue with deeply nested protobufs
     tonic::include_proto!("mod");
@@ -32,6 +40,8 @@ pub mod fs_watcher;
 #[cfg(feature = "filewatcher")]
 use fs_watcher::is_filetype;
 
+pub mod manifest_parser;
+
 use containers::github::com::eclipse_kanto::container_management::containerm::api::services::containers as kanto;
 use containers::github::com::eclipse_kanto::container_management::containerm::api::types::containers as kanto_cnt;
 
@@ -39,7 +49,7 @@ type CmClient = kanto::containers_client::ContainersClient<tonic::transport::Cha
 
 #[derive(Parser, Debug)]
 #[clap(version, about)]
-struct CliArgs {
+pub struct CliArgs {
     /// Set the path to the directory containing the manifests
     #[clap(default_value = ".")]
     manifests_path: PathBuf,
@@ -57,10 +67,36 @@ struct CliArgs {
     #[clap(long, short, action, default_value_t = false)]
     #[cfg(feature = "filewatcher")]
     daemon: bool,
+
+    #[cfg(feature = "mqtt")]
+    #[clap(flatten)]
+    mqtt: MQTTconfig,
 }
 
-static CONN_RETRY_BASE_TIMEOUT_MS: u64 = 100;
+#[cfg(feature = "mqtt")]
+#[derive(Debug, Args)]
+pub struct MQTTconfig {
+    /// Enable an MQTT client that listens for the desired state message and disables kanto-auto-deployer to avoid conflicts
+    #[clap(short = 'm', long = "mqtt")]
+    enabled: bool,
 
+    /// Hostname/IP to the MQTT broker where the desired state message would be posted
+    #[clap(long = "mqtt-broker-host", default_value = "localhost")]
+    ip: String,
+
+    /// Port for the MQTT broker
+    #[clap(long = "mqtt-broker-port", default_value_t = 1883)]
+    port: u16,
+
+    /// Topic on which to subscribe for the desired state message feedback
+    #[clap(
+        long = "mqtt-topic",
+        default_value = "containersupdate/desiredstatefeedback"
+    )]
+    topic: String,
+}
+
+static CM_RETRY_BASE_TIMEOUT_MS: u64 = 100;
 // Conditional compilation would give warnings for unused variants
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq)]
@@ -105,7 +141,7 @@ async fn get_unix_channel(socket_path: &str) -> Result<tonic::transport::Channel
 
 async fn get_client(socket_path: &str, retries: RetryTimes) -> Result<CmClient> {
     let mut retry_state = RetryState::new(retries);
-    let retry_strategy = strategy::FibonacciBackoff::from_millis(CONN_RETRY_BASE_TIMEOUT_MS)
+    let retry_strategy = strategy::FibonacciBackoff::from_millis(CM_RETRY_BASE_TIMEOUT_MS)
         .map(|d| {
             log::debug!("Retrying connection in {} ms", d.as_millis());
             d
@@ -286,7 +322,7 @@ async fn main() -> Result<()> {
         env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
-    let cli = CliArgs::parse();
+    let cli = Arc::new(CliArgs::parse());
     log::debug!("{:#?}", cli);
 
     let socket_path = String::from(cli.socket_cm.to_string_lossy());
@@ -319,11 +355,19 @@ async fn main() -> Result<()> {
 
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
+        static THREAD_TERMINATE_FLAG: AtomicBool = AtomicBool::new(false);
+        #[cfg(feature = "mqtt")]
+        if cli.mqtt.enabled {
+            thread::spawn({
+                let cli = cli.clone();
+                || mqtt_listener::mqtt_main(cli, &THREAD_TERMINATE_FLAG)
+            });
+        }
         log::info!(
             "Running in daemon mode. Continuously monitoring {:#?}",
             manifests_path
         );
-        fs_watcher::async_watch(&manifests_path, |e| async {
+        fs_watcher::async_watch(&THREAD_TERMINATE_FLAG, &manifests_path, |e| async {
             redeploy_on_change(e, &socket_path).await
         })
         .await?
