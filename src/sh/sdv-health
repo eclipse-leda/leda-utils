@@ -31,7 +31,7 @@ SDV_CAN="can0"
 SDV_CAN_RADAR=""
 
 # Default list of monitored Systemd Services
-SDV_SERVICES="containerd rauc container-management update-manager"
+SDV_SERVICES="containerd rauc container-management kanto-update-manager"
 
 # Default list of optional Systemd Services
 #SDV_SERVICES_OPT="vehicle-api mosquitto"
