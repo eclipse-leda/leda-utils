@@ -40,7 +40,7 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y alien openssl-dev
+          sudo apt-get install -y alien openssl libssl-dev
       - name: Install cross-compilation tools
         uses: taiki-e/setup-cross-toolchain-action@v1
         with:
