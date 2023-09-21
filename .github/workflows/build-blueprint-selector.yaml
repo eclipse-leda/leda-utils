@@ -1,0 +1,113 @@
+# /********************************************************************************
+# * Copyright (c) 2023 Contributors to the Eclipse Foundation
+# *
+# * See the NOTICE file(s) distributed with this work for additional
+# * information regarding copyright ownership.
+# *
+# * This program and the accompanying materials are made available under the
+# * terms of the Apache License 2.0 which is available at
+# * https://www.apache.org/licenses/LICENSE-2.0
+# *
+# * SPDX-License-Identifier: Apache-2.0
+# ********************************************************************************/
+#
+
+name: Build Blueprint Selector
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - x86_64-unknown-linux-gnu
+    
+    # Not using latest here, so that building the binaries uses an older version of glibc
+    # and then can run on newer versions.
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+          fetch-depth: 0
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y alien
+      - name: Install cross-compilation tools
+        uses: taiki-e/setup-cross-toolchain-action@v1
+        with:
+          target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src/rust/blueprint-selector/ -> target
+      - name: Build binary
+        run: |
+          cd src/rust/blueprint-selector
+          cargo build --release
+      - name: Package 
+        run: |
+          cp src/rust/blueprint-selector/target/${{ matrix.target }}/release/blueprint-selector . 
+          chmod +x blueprint-selector
+          tar czf blueprint-selector-${{ matrix.target }}.tar.gz blueprint-selector LICENSE README.md NOTICE.md
+      - name: Upload files
+        uses: actions/upload-artifact@v3
+        with: 
+          name: blueprint-selector-${{ matrix.target }}-archive
+          if-no-files-found: error
+          path: blueprint-selector-${{ matrix.target }}.tar.gz
+      - name: Debian Package Preparation
+        run: |
+          mkdir -p .debpkg/usr/bin
+          mkdir -p .debpkg/etc/blueprint-selector
+          cp blueprint-selector .debpkg/usr/bin
+          chmod +x .debpkg/usr/bin/blueprint-selector
+
+          # create DEBIAN directory if you want to add other pre/post scripts
+          mkdir -p .debpkg/DEBIAN
+          cat <<EOT > .debpkg/DEBIAN/copyright
+          Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+          Upstream-Name: Eclipse Leda
+          Source: github.com/eclipse-leda/
+          
+          Files: *
+          Copyright: 2022-2023, Contributors to the Eclipse Foundation
+          License: APL-2.0
+          EOT          
+      - name: Set variables
+        run: |
+          git describe --tags --always --long
+          echo "package_version=`echo $(git describe --tags --always --long | tr -d [:alpha:] | sed 's/-/./g')`" >> $GITHUB_ENV
+          if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
+            echo "package_arch=arm64" >> $GITHUB_ENV
+          elif [ "${{ matrix.target }}" == "x86_64-unknown-linux-gnu" ]; then
+            echo "package_arch=amd64" >> $GITHUB_ENV
+          else
+            echo "::error::Unknown architecture: ${{ matrix.target }}"
+          fi
+      - uses: jiro4989/build-deb-action@v2
+        with:
+          package: eclipse-leda-blueprint-selector
+          package_root: .debpkg
+          maintainer: Eclipse Leda Development Team
+          version: '${{ env.package_version }}'
+          arch: '${{ env.package_arch }}'
+          depends: 'libc6'
+          desc: 'Provides the user with an interactive menu to select blueprint to be deployed on the edge device via MQTT'
+      - name: Convert deb to rpm
+        run: |
+          sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
+      - uses: actions/upload-artifact@v3
+        with:
+          name: blueprint-selector-packages
+          path: |
+            ./*.deb
+            ./*.rpm
