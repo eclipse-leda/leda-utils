@@ -41,18 +41,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y alien openssl libssl-dev
-      - name: Install cross-compilation tools
-        uses: taiki-e/setup-cross-toolchain-action@v1
-        with:
-          target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            src/rust/blueprint-selector/ -> target
       - name: Build binary
-        run: |
-          cd src/rust/blueprint-selector
-          cargo build --release
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: "--locked --release"
+          strip: true
       - name: Package 
         run: |
           cp src/rust/blueprint-selector/target/${{ matrix.target }}/release/blueprint-selector . 
