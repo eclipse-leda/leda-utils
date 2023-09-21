@@ -48,7 +48,7 @@ jobs:
           command: build
           toolchain: ${{ matrix.toolchain }}
           target: ${{ matrix.target }}
-          #working-directory: src/rust/blueprint-selector/
+          working-directory: src/rust/blueprint-selector/
           args: "--locked --release"
           strip: true
       - name: Package 
