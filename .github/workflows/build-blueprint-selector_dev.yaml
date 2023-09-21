@@ -12,7 +12,7 @@
 # ********************************************************************************/
 #
 
-name: Build Blueprint Selector
+name: Build Blueprint Selector (Dev)
 
 on:
   workflow_dispatch:
@@ -25,7 +25,8 @@ jobs:
         target:
           - aarch64-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
-    
+        toolchain:
+          - stable    
     # Not using latest here, so that building the binaries uses an older version of glibc
     # and then can run on newer versions.
     runs-on: ubuntu-20.04
@@ -40,19 +41,16 @@ jobs:
       - name: Install Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y alien
-      - name: Install cross-compilation tools
-        uses: taiki-e/setup-cross-toolchain-action@v1
-        with:
-          target: ${{ matrix.target }}
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            src/rust/blueprint-selector/ -> target
+          sudo apt-get install -y alien openssl libssl-dev
       - name: Build binary
-        run: |
-          cd src/rust/blueprint-selector
-          cargo build --release
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: build
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+          working-directory: src/rust/blueprint-selector/
+          args: "--locked --release"
+          strip: true
       - name: Package 
         run: |
           cp src/rust/blueprint-selector/target/${{ matrix.target }}/release/blueprint-selector . 
