@@ -12,7 +12,7 @@
 # ********************************************************************************/
 #
 
-name: Build Blueprint Selector
+name: Build Blueprint Selector (Dev)
 
 on:
   workflow_dispatch:

@@ -28,11 +28,6 @@ jobs:
     uses: ./.github/workflows/build-kanto-auto-deployer.yaml
     secrets: inherit
 
-  build-blueprint-selector:
-    name: Build Blueprint Selector
-    uses: ./.github/workflows/build-blueprint-selector.yaml
-    secrets: inherit
-
   build-leda-utils:
     name: Build Leda-Utils
     uses: ./.github/workflows/build-leda-utils.yaml
