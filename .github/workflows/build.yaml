@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/build-kanto-auto-deployer.yaml
     secrets: inherit
 
-  build-kantui:
+  build-blueprint-selector:
     name: Build Blueprint Selector
     uses: ./.github/workflows/build-blueprint-selector.yaml
     secrets: inherit
