@@ -363,7 +363,7 @@ async fn main() -> Result<()> {
 
     // One-shot deployment of all manifests in directory
     if let Err(e) = deploy_directory(&manifests_path, &socket_path, retry_times).await {
-        log::error!("Failed to deploy directory: {e}.")
+        log::error!("Failed to deploy directory: {e}")
     }
 
     #[cfg(feature = "filewatcher")]
