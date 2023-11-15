@@ -268,20 +268,19 @@ async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bo
 }
 
 async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTimes) -> Result<()> {
-    let mut file_path = String::from(directory_path);
-    log::info!("Reading manifests from [{}]", file_path);
-    file_path.push_str("/*.json");
+    let manifest_glob = format!("{}/*.json", directory_path);
+    log::info!("Reading manifests from [{}]", directory_path);
 
-    let found_paths: Vec<String> = glob(&file_path)?
+    let found_manifest_paths: Vec<String> = glob(&manifest_glob)?
         .filter_map(Result::ok)
         .filter_map(|path| Some(path.to_str()?.to_owned()))
         .collect();
-    if found_paths.is_empty() {
+    if found_manifest_paths.is_empty() {
         return Err(anyhow::anyhow!("No manifests found in {directory_path}"));
     }
 
     let deployments = future::join_all(
-        found_paths
+        found_manifest_paths
             .iter()
             .map(|p| deploy(socket, retries, p, false)),
     )
@@ -293,7 +292,7 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
         "Successfully deployed {}, Failed: {}, Out of {}",
         successful.len(),
         failed.len(),
-        found_paths.len()
+        found_manifest_paths.len()
     );
 
     failed
