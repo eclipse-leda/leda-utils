@@ -11,7 +11,7 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 use glob::glob;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -247,7 +247,7 @@ async fn deploy_new(_client: &mut CmClient, new_cont: kanto_cnt::Container) -> R
     Ok(())
 }
 
-async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bool) -> Result<()> {
+async fn deploy(socket: &str, retries: RetryTimes, file_path: &Path, recreate: bool) -> Result<()> {
     let container_str = tokio::fs::read_to_string(file_path).await?;
     let mut _client = get_client(socket, retries).await?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
@@ -263,7 +263,7 @@ async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bo
             deploy_new(&mut _client, new_container).await
         }
     } else {
-        Err(anyhow::anyhow!("Wrong json in [{}]", file_path))
+        Err(anyhow::anyhow!("Wrong json in [{:?}]", file_path))
     }
 }
 
@@ -271,9 +271,8 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
     let manifest_glob = format!("{}/*.json", directory_path);
     log::info!("Reading manifests from [{}]", directory_path);
 
-    let found_manifest_paths: Vec<String> = glob(&manifest_glob)?
+    let found_manifest_paths: Vec<PathBuf> = glob(&manifest_glob)?
         .filter_map(Result::ok)
-        .filter_map(|path| Some(path.to_str()?.to_owned()))
         .collect();
     if found_manifest_paths.is_empty() {
         return Err(anyhow::anyhow!("No manifests found in {directory_path}"));
@@ -309,16 +308,15 @@ async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTime
 }
 
 #[cfg(feature = "filewatcher")]
-async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
+async fn redeploy_on_change(event: fs_watcher::Event, socket: &str) {
     // In daemon mode we wait until a connection is available to proceed
     // Unwrapping in this case is safe.
-    for path in &e.paths {
+    for path in &event.paths {
         if !is_filetype(path, "json") {
             continue;
         }
-        if e.kind.is_create() || e.kind.is_modify() {
-            let json_path = String::from(path.to_string_lossy());
-            if let Err(e) = deploy(socket, RetryTimes::Forever, &json_path, true).await {
+        if event.kind.is_create() || event.kind.is_modify() {
+            if let Err(e) = deploy(socket, RetryTimes::Forever, path, true).await {
                 log::error!("[CM error] {:?}", e.root_cause());
             };
         }
