@@ -125,7 +125,7 @@ pub fn try_parse_manifest(container_str: &str) -> Result<Container, Box<dyn std:
             ctr
         }
         Err(_) => {
-            log::warn!("Failed to load manifest directly. Will attempt auto-conversion from init-dir format.");
+            log::debug!("Failed to load manifest directly. Will attempt auto-conversion from init-dir format.");
             let manifest = serde_json::from_str(container_str)?;
             let manifest = expand_container_manifest(&manifest)?;
             let internal_state = map_to_internal_state_manifest(manifest)?;

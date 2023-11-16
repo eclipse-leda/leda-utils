@@ -11,12 +11,12 @@
 // * SPDX-License-Identifier: Apache-2.0
 // ********************************************************************************
 use glob::glob;
-use std::fs;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::sync::Arc;
 
 use anyhow::Result;
 use clap::Parser;
+use futures::future;
 use std::sync::atomic::AtomicBool;
 use tokio::net::UnixStream;
 use tokio_retry::{strategy, RetryIf};
@@ -247,8 +247,8 @@ async fn deploy_new(_client: &mut CmClient, new_cont: kanto_cnt::Container) -> R
     Ok(())
 }
 
-async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bool) -> Result<()> {
-    let container_str = fs::read_to_string(file_path)?;
+async fn deploy(socket: &str, retries: RetryTimes, file_path: &Path, recreate: bool) -> Result<()> {
+    let container_str = tokio::fs::read_to_string(file_path).await?;
     let mut _client = get_client(socket, retries).await?;
     let parsed_json = manifest_parser::try_parse_manifest(&container_str);
     if let Ok(new_container) = parsed_json {
@@ -258,58 +258,65 @@ async fn deploy(socket: &str, retries: RetryTimes, file_path: &str, recreate: bo
             .iter()
             .find(|c| c.name == new_container.name);
         if let Some(existing_cont) = existing_instance {
-            return handle_existing(&mut _client, new_container, existing_cont, recreate).await;
+            handle_existing(&mut _client, new_container, existing_cont, recreate).await
         } else {
-            return deploy_new(&mut _client, new_container).await;
+            deploy_new(&mut _client, new_container).await
         }
     } else {
-        log::error!("Wrong json in [{}]", file_path);
+        Err(anyhow::anyhow!("Wrong json in [{:?}]", file_path))
     }
-    Ok(())
 }
 
 async fn deploy_directory(directory_path: &str, socket: &str, retries: RetryTimes) -> Result<()> {
-    let mut file_path = String::from(directory_path);
-    let mut path = String::new();
+    let manifest_glob = format!("{}/*.json", directory_path);
+    log::info!("Reading manifests from [{}]", directory_path);
 
-    path.push_str(&file_path.clone());
-    file_path.push_str("/*.json");
-
-    let mut b_found = false;
-
-    log::info!("Reading manifests from [{}]", path);
-
-    let mut full_name = String::new();
-    for entry in glob(&file_path).expect("Failed to parse glob pattern") {
-        let name = entry
-            .expect("Path to entry is unreadable")
-            .display()
-            .to_string();
-        full_name.push_str(&name);
-        b_found = true;
-        match deploy(socket, retries, &full_name, false).await {
-            Ok(_) => {}
-            Err(e) => log::error!("[CM error] Failed to create: {:?}", e.root_cause()),
-        };
-        full_name.clear();
+    let found_manifest_paths: Vec<PathBuf> = glob(&manifest_glob)?
+        .filter_map(Result::ok)
+        .collect();
+    if found_manifest_paths.is_empty() {
+        return Err(anyhow::anyhow!("No manifests found in {directory_path}"));
     }
-    if !b_found {
-        log::error!("No manifests are found in [{}]", path);
+
+    let deployments = future::join_all(
+        found_manifest_paths
+            .iter()
+            .map(|p| deploy(socket, retries, p, false)),
+    )
+    .await;
+
+    let (successful, failed): (Vec<_>, Vec<_>) = deployments.into_iter().partition(Result::is_ok);
+
+    log::debug!(
+        "Successfully deployed {}, Failed: {}, Out of {}",
+        successful.len(),
+        failed.len(),
+        found_manifest_paths.len()
+    );
+
+    failed
+        .iter()
+        .for_each(|e| log::error!("[CM error] {:?}", e));
+
+    if !failed.is_empty() {
+        return Err(anyhow::anyhow!(
+            "One or more deployments failed. Check the logs above for more information."
+        ));
     }
+
     Ok(())
 }
 
 #[cfg(feature = "filewatcher")]
-async fn redeploy_on_change(e: fs_watcher::Event, socket: &str) {
+async fn redeploy_on_change(event: fs_watcher::Event, socket: &str) {
     // In daemon mode we wait until a connection is available to proceed
     // Unwrapping in this case is safe.
-    for path in &e.paths {
+    for path in &event.paths {
         if !is_filetype(path, "json") {
             continue;
         }
-        if e.kind.is_create() || e.kind.is_modify() {
-            let json_path = String::from(path.to_string_lossy());
-            if let Err(e) = deploy(socket, RetryTimes::Forever, &json_path, true).await {
+        if event.kind.is_create() || event.kind.is_modify() {
+            if let Err(e) = deploy(socket, RetryTimes::Forever, path, true).await {
                 log::error!("[CM error] {:?}", e.root_cause());
             };
         }
@@ -351,7 +358,9 @@ async fn main() -> Result<()> {
     }
 
     // One-shot deployment of all manifests in directory
-    deploy_directory(&manifests_path, &socket_path, retry_times).await?;
+    if let Err(e) = deploy_directory(&manifests_path, &socket_path, retry_times).await {
+        log::error!("Failed to deploy directory: {e}")
+    }
 
     #[cfg(feature = "filewatcher")]
     if cli.daemon {
