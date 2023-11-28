@@ -242,7 +242,8 @@ ctr --namespace kanto-cm tasks start --detach kuksa-client
 ctr --namespace kanto-cm tasks exec --tty --exec-id sometask kuksa-client /kuksa-client/bin/kuksa-client --port 30555 --protocol grpc --insecure
 
 # Executing a containerized cli tool using sdv-ctr-exec
-kanto-cm create --i --t --network=host --name=kuksa-client ghcr.io/eclipse/kuksa.val/kuksa-client:master
+# will only work with kuksa-client tags <= 0.3.0
+kanto-cm create --i --t --network=host --name=kuksa-client ghcr.io/eclipse/kuksa.val/kuksa-client:0.3.0
 kanto-cm start --name=kuksa-client
 sdv-ctr-exec -n kuksa-client /kuksa-client/bin/kuksa-client --port 30555 --protocol grpc --insecure
 ```
