@@ -28,16 +28,16 @@ setup() {
 
 @test "SDV-KANTO-CTL should modify values in Kanto Config" {
     run sdv-kanto-ctl add-registry -h myhost -u myuser -p mypass
-    assert_file_contains ${CONFIG_FILE} '.*mypass.*'
+    assert_file_contains "${CONFIG_FILE}" '.*mypass.*'
 }
 
 @test "SDV-KANTO-CTL should modify arrays in Kanto Config" {
     run sdv-kanto-ctl add-entry containers.insecure_registries localhost:5000
-    run jq '.containers.insecure_registries[0]' ${CONFIG_FILE}
+    run jq '.containers.insecure_registries[0]' "${CONFIG_FILE}"
     assert_output "\"localhost:5000\""
 
     run sdv-kanto-ctl remove-entry containers.insecure_registries localhost:5000
-    run jq '.containers.insecure_registries[0]' ${CONFIG_FILE}
+    run jq '.containers.insecure_registries[0]' "${CONFIG_FILE}"
     assert_output "null"
 }
 

@@ -1,10 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC3043
 # shellcheck disable=SC1091
-# shellcheck disable=SC2086
 # shellcheck disable=SC2034
-# shellcheck disable=SC2059
-# shellcheck disable=SC2039
 # /********************************************************************************
 # * Copyright (c) 2023 Contributors to the Eclipse Foundation
 # *
@@ -214,7 +211,7 @@ init_colors
 # shellcheck source=/etc/sdv/sdv.conf
 if [ -f "$HOME/.config/sdv.conf" ]; then
 	. "$HOME/.config/sdv.conf"
-	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && grep -v  '^#' $HOME/.config/sdv.conf | sort -u
+	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: $HOME/.config/sdv.conf" && grep -v  '^#' "$HOME/.config/sdv.conf" | sort -u
 elif [ -f "/etc/sdv/sdv.conf" ]; then
 	. "/etc/sdv/sdv.conf"
 	[ "$VERBOSE" = "1" ] && echo "# Config loaded from: /etc/sdv/sdv.conf" && grep -v  '^#' /etc/sdv/sdv.conf | sort -u
@@ -229,14 +226,14 @@ fi
 apply_changes() {
 	local TMPFILE="$1"
 	if [ -w ${KANTO_CONFIG} ]; then
-		diff ${TMPFILE} ${KANTO_CONFIG} > /dev/null
+		diff "${TMPFILE}" ${KANTO_CONFIG} > /dev/null
 		DIFF_RC=$?
 		if [ "${DIFF_RC}" -eq 1 ]; then
 			BACKUP=$(mktemp --tmpdir kanto-cm-config-backup.XXXXXXX)
 			echo "Backing up to ${BACKUP}"
 			echo "Applying changes:"
-			cp ${KANTO_CONFIG} ${BACKUP}
-			cp ${TMPFILE} ${KANTO_CONFIG}
+			cp ${KANTO_CONFIG} "${BACKUP}"
+			cp "${TMPFILE}" ${KANTO_CONFIG}
 			[ "$VERBOSE" = "1" ] &&	echo "Ok, changes applied."
 			CHANGES_APPLIED=1
 		elif [ "${DIFF_RC}" -eq 0 ]; then
@@ -247,7 +244,7 @@ apply_changes() {
 		fi
 	else
 		echo "Unable to apply changes:"
-		jq < ${TMPFILE}
+		jq < "${TMPFILE}"
 		echo "ERROR: No write permissions to ${KANTO_CONFIG}"
 		echo "The changes cannot be applied automatically, as the current user does not have write permissions to ${KANTO_CONFIG}"
 		echo "Either apply the configuration changes manually, or run this script with write permissions (e.g. use sudo):"
@@ -271,7 +268,7 @@ add_registry() {
                  "user_id": $REGISTRY_USERNAME,
                  "password": $REGISTRY_PASSWORD
              }
-         } }' < ${KANTO_CONFIG} > ${TMPFILE}
+         } }' < ${KANTO_CONFIG} > "${TMPFILE}"
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
@@ -285,13 +282,13 @@ remove_registry() {
 
 	jq \
 	--arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" \
-	'del(.containers.registry_configurations[$REGISTRY_HOSTNAME])' < ${KANTO_CONFIG} > ${TMPFILE}
+	'del(.containers.registry_configurations[$REGISTRY_HOSTNAME])' < ${KANTO_CONFIG} > "${TMPFILE}"
 
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
 
-	jq '.containers.registry_configurations' < ${TMPFILE}
+	jq '.containers.registry_configurations' < "${TMPFILE}"
 }
 
 remove_all_registries() {
@@ -300,13 +297,13 @@ remove_all_registries() {
 
 	jq \
 	--arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" \
-	'del(.containers.registry_configurations)' < ${KANTO_CONFIG} > ${TMPFILE}
+	'del(.containers.registry_configurations)' < ${KANTO_CONFIG} > "${TMPFILE}"
 
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
 
-	jq < ${TMPFILE}
+	jq < "${TMPFILE}"
 }
 
 list_registries() {
@@ -324,36 +321,36 @@ set_config() {
 	jq \
 	--arg CONFIG_KEY "$CONFIG_KEY" \
 	--arg CONFIG_VALUE "$CONFIG_VALUE" \
-	'setpath( $CONFIG_KEY|split(".")[1:]; $CONFIG_VALUE)' < ${KANTO_CONFIG} > ${TMPFILE}
+	'setpath( $CONFIG_KEY|split(".")[1:]; $CONFIG_VALUE)' < ${KANTO_CONFIG} > "${TMPFILE}"
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
 
-	jq < ${TMPFILE}
+	jq < "${TMPFILE}"
 }
 
 add_config_array_entry() {
 	echo "Adding $CONFIG_VALUE to configuration $CONFIG_KEY"
 	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
 	JQ_CMD=".${CONFIG_KEY} += [\"${CONFIG_VALUE}\"]"
-	jq "${JQ_CMD}" < ${KANTO_CONFIG} > ${TMPFILE}
+	jq "${JQ_CMD}" < ${KANTO_CONFIG} > "${TMPFILE}"
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
 
-	jq < ${TMPFILE}
+	jq < "${TMPFILE}"
 }
 
 remove_config_array_entry() {
 	echo "Removing $CONFIG_VALUE from configuration $CONFIG_KEY"
 	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
 	JQ_CMD=".${CONFIG_KEY} -= [\"${CONFIG_VALUE}\"]"
-	jq "${JQ_CMD}" < ${KANTO_CONFIG} > ${TMPFILE}
+	jq "${JQ_CMD}" < ${KANTO_CONFIG} > "${TMPFILE}"
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
 
-	jq < ${TMPFILE}
+	jq < "${TMPFILE}"
 }
 
 ######################################################
