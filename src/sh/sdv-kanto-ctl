@@ -59,12 +59,12 @@ display_help() {
 		echo "Commands:"
 		echo "	add-registry -h <hostname> -u <username> -p <password>"
 		echo "		Adds or replaces a container registry authentication configuration"
-		echo "		-h or --hostname: Configure the hostname of the container registry (e.g. hub.docker.io, ghcr.io, ...)" 
-		echo "		-u or --username: Configure the username" 
-		echo "		-p or --password: Configure the password" 
+		echo "		-h or --hostname: Configure the hostname of the container registry (e.g. hub.docker.io, ghcr.io, ...)"
+		echo "		-u or --username: Configure the username"
+		echo "		-p or --password: Configure the password"
 		echo "	remove-registry -h <hostname>"
 		echo "		Removes the specified container registry"
-		echo "		-h or --hostname: The hostname of the container registry" 
+		echo "		-h or --hostname: The hostname of the container registry"
 		echo "	remove-all-registries"
 		echo "		Removes all configured container registries"
 		echo "	list-registries"
@@ -75,6 +75,12 @@ display_help() {
 		echo "		Set a primitive configuration value. Key in JSON Dot-Notation"
 		echo "		Examples: $0 set-value containers.registry_configurations.MyRegistry.credentials.password foobar"
 		echo "		          $0 set-value things.enable true"
+		echo "	add-entry <key> <value>"
+		echo "		Add a string value to a configuration array. Key in JSON Dot-Notation"
+		echo "		Example: $0 add-entry containers.insecure_registries localhost:5000"
+		echo "	remove-entry <key> <value>"
+		echo "		Remove a string value from a configuration array. Key in JSON Dot-Notation"
+		echo "		Example: $0 add-remove things.features Metrics"
 		echo "Options:"
 		echo "	--no-reload : Do not reload the configuration and restart the container-management service automatically"
 		echo "	--ansi : Don't use colored output."
@@ -88,7 +94,7 @@ while [ -n "$1" ]; do
 	if [ "$1" = "add-registry" ]; then
 		COMMAND=$1
 		shift
-		while [ -n "$1" ]; do 
+		while [ -n "$1" ]; do
 			if [ "$1" = "-u" ] || [ "$1" = "--username" ]; then
 				if [ -n "$2" ];	then
 					shift
@@ -124,7 +130,7 @@ while [ -n "$1" ]; do
 	elif [ "$1" = "remove-registry" ]; then
 		COMMAND=$1
 		shift
-		while [ -n "$1" ]; do 
+		while [ -n "$1" ]; do
 			if [ "$1" = "-h" ] || [ "$1" = "--hostname" ]; then
 				if [ -n "$2" ];	then
 					shift
@@ -146,30 +152,30 @@ while [ -n "$1" ]; do
 	elif [ "$1" = "remove-all-registries" ]; then
 		COMMAND=$1
 		shift
-		while [ -n "$1" ]; do 
+		while [ -n "$1" ]; do
 			echo "Error: Unknown argument for command remove-all-registries: $1"
 			exit 1
 		done
 	elif [ "$1" = "list-registries" ]; then
 		COMMAND=$1
 		shift
-		while [ -n "$1" ]; do 
+		while [ -n "$1" ]; do
 			echo "Error: Unknown argument for command list-registries: $1"
 			exit 1
 		done
 	elif [ "$1" = "show-config" ]; then
 		COMMAND=$1
 		shift
-		while [ -n "$1" ]; do 
+		while [ -n "$1" ]; do
 			echo "Error: Unknown argument for command show-config: $1"
 			exit 1
 		done
-	elif [ "$1" = "set-value" ]; then
+	elif [ "$1" = "set-value" ] || [ "$1" = "add-entry" ] || [ "$1" = "remove-entry" ]; then
 		COMMAND=$1
 		CONFIG_KEY=$2
 		CONFIG_VALUE=$3
 		if [ "$#" -ne 3 ]; then
-			echo "ERROR: set-value command requires two arguments: <key> and <value>"
+			echo "ERROR: $COMMAND command requires two arguments: <key> and <value>"
 			exit 1
 		else
 			shift 2
@@ -270,17 +276,17 @@ add_registry() {
 
 	apply_changes "${TMPFILE}"
 
-	jq --arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" '.containers.registry_configurations | with_entries(select(.key|contains($REGISTRY_HOSTNAME)))' < ${KANTO_CONFIG} 
+	jq --arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" '.containers.registry_configurations | with_entries(select(.key|contains($REGISTRY_HOSTNAME)))' < ${KANTO_CONFIG}
 }
 
 remove_registry() {
 	echo "Removing container registry $REGISTRY_HOSTNAME"
 	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
-	
+
 	jq \
 	--arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" \
 	'del(.containers.registry_configurations[$REGISTRY_HOSTNAME])' < ${KANTO_CONFIG} > ${TMPFILE}
-	
+
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
@@ -291,15 +297,15 @@ remove_registry() {
 remove_all_registries() {
 	echo "Removing all configured container registries"
 	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
-	
+
 	jq \
 	--arg REGISTRY_HOSTNAME "$REGISTRY_HOSTNAME" \
 	'del(.containers.registry_configurations)' < ${KANTO_CONFIG} > ${TMPFILE}
-	
+
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
-	
+
 	jq < ${TMPFILE}
 }
 
@@ -322,7 +328,31 @@ set_config() {
 	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
 
 	apply_changes "${TMPFILE}"
-	
+
+	jq < ${TMPFILE}
+}
+
+add_config_array_entry() {
+	echo "Adding $CONFIG_VALUE to configuration $CONFIG_KEY"
+	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
+	JQ_CMD=".${CONFIG_KEY} += [\"${CONFIG_VALUE}\"]"
+	jq "${JQ_CMD}" < ${KANTO_CONFIG} > ${TMPFILE}
+	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
+
+	apply_changes "${TMPFILE}"
+
+	jq < ${TMPFILE}
+}
+
+remove_config_array_entry() {
+	echo "Removing $CONFIG_VALUE from configuration $CONFIG_KEY"
+	TMPFILE=$(mktemp --tmpdir kanto-cm-config.XXXXXXX)
+	JQ_CMD=".${CONFIG_KEY} -= [\"${CONFIG_VALUE}\"]"
+	jq "${JQ_CMD}" < ${KANTO_CONFIG} > ${TMPFILE}
+	[ "$VERBOSE" = "1" ] && echo "Created temp file for modifications: ${TMPFILE}"
+
+	apply_changes "${TMPFILE}"
+
 	jq < ${TMPFILE}
 }
 
@@ -332,7 +362,7 @@ set_config() {
 
 if [ -z "$COMMAND" ]; then
 	display_help
-fi 
+fi
 
 [ "$COMMAND" = "add-registry" ] && add_registry
 [ "$COMMAND" = "remove-registry" ] && remove_registry
@@ -340,6 +370,8 @@ fi
 [ "$COMMAND" = "list-registries" ] && list_registries
 [ "$COMMAND" = "show-config" ] && show_config
 [ "$COMMAND" = "set-value" ] && set_config
+[ "$COMMAND" = "add-entry" ] && add_config_array_entry
+[ "$COMMAND" = "remove-entry" ] && remove_config_array_entry
 
 if [ "$CHANGES_APPLIED" ]; then
 	if [ "${RELOAD}" ]; then

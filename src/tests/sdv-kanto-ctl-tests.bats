@@ -18,14 +18,27 @@ setup() {
     load 'test_helper/bats-file/load.bash'
     DIR="$( cd "$( dirname "$BATS_TEST_FILENAME" )" >/dev/null 2>&1 && pwd )"
     PATH="$DIR/../sh:$PATH"
-}
 
-@test "SDV-KANTO-CTL should modify Kanto Config" {
     CONFIG_FILE="/etc/container-management/config.json"
     mkdir -p "$(dirname ${CONFIG_FILE})"
-    echo "{}" > ${CONFIG_FILE} 
-    assert_file_exist ${CONFIG_FILE} 
+    echo "{}" > ${CONFIG_FILE}
+    assert_file_exist ${CONFIG_FILE}
+}
 
+
+@test "SDV-KANTO-CTL should modify values in Kanto Config" {
     run sdv-kanto-ctl add-registry -h myhost -u myuser -p mypass
     assert_file_contains ${CONFIG_FILE} '.*mypass.*'
 }
+
+@test "SDV-KANTO-CTL should modify arrays in Kanto Config" {
+    run sdv-kanto-ctl add-entry containers.insecure_registries localhost:5000
+    run jq '.containers.insecure_registries[0]' ${CONFIG_FILE}
+    assert_output "\"localhost:5000\""
+
+    run sdv-kanto-ctl remove-entry containers.insecure_registries localhost:5000
+    run jq '.containers.insecure_registries[0]' ${CONFIG_FILE}
+    assert_output "null"
+}
+
+
