@@ -12,6 +12,7 @@ List of utilities:
 - *can-forward*: Forwarding a CAN-bus network interface into a containerized Vehicle Application
 - *sdv-ctr-exec:* Execute arbitrary commands in existing containers
 - *sdv-kanto-ctl:* Manage the Kanto Container Management configuration via CLI
+- *kantocm_zeroconf:* A system service to publish running containers with zeroconf
 
 ## Usage
 
@@ -147,7 +148,7 @@ ExecStart=/usr/bin/kanto-auto-deployer /var/containers/manifests
 Example output:
 
 ```shell
-root@qemux86-64:/lib/systemd/system# systemctl status kanto-auto-deployer.service 
+root@qemux86-64:/lib/systemd/system# systemctl status kanto-auto-deployer.service
 * kanto-auto-deployer.service - Kanto Auto Deployer
      Loaded: loaded (/lib/systemd/system/kanto-auto-deployer.service; enabled; vendor preset: enabled)
      Active: inactive (dead) since Fri 2022-12-09 09:41:42 UTC; 7min ago
@@ -222,7 +223,7 @@ This is especially useful for non-service-containers, or containers which have a
 Usage:
 
 ```shell
-root@qemux86-64:~# sdv-ctr-exec 
+root@qemux86-64:~# sdv-ctr-exec
 /usr/bin/sdv-ctr-exec -h to print this message
 
 Usage:
