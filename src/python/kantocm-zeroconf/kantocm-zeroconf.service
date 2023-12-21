@@ -13,7 +13,8 @@
 
 [Unit]
 Description=KantoCM Zeroconf Service
-After=network.service
+Requires=network.target container-management.service
+After=network.target container-management.service
 Wants=avahi-daemon
 
 [Install]
