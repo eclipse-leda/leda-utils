@@ -57,7 +57,7 @@ jobs:
           chmod +x kanto-auto-deployer
           tar czf kanto-auto-deployer-${{ matrix.target }}.tar.gz kanto-auto-deployer LICENSE README.md NOTICE.md
       - name: Upload files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with: 
           name: kanto-auto-deployer-${{ matrix.target }}-archive
           if-no-files-found: error
@@ -102,7 +102,7 @@ jobs:
       - name: Convert deb to rpm
         run: |
           sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: kanto-auto-deployer-packages
           path: |

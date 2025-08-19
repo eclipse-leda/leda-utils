@@ -90,7 +90,7 @@ jobs:
       - name: Convert deb to rpm
         run: |
           sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: leda-utils-packages
           path: |
