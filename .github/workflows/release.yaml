@@ -36,7 +36,7 @@ jobs:
         with:
           path: build/
       - name: Upload assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           fail_on_unmatched_files: true
           files: |
@@ -49,5 +49,5 @@ jobs:
             ${{steps.download.outputs.download-path}}/kantui-*-packages/eclipse-leda-kantui*.arm64.rpm
             ${{steps.download.outputs.download-path}}/kanto-auto-deployer-*-packages/eclipse-leda-kanto-auto-deployer*.x86_64.rpm
             ${{steps.download.outputs.download-path}}/kanto-auto-deployer-*-packages/eclipse-leda-kanto-auto-deployer*.arm64.rpm
-            ${{steps.download.outputs.download-path}}/leda-utils-*-packages/eclipse-leda-utils*.noarch.rpm
+            ${{steps.download.outputs.download-path}}/leda-utils-packages/eclipse-leda-utils*.noarch.rpm
             
