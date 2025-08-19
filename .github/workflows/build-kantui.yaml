@@ -58,7 +58,7 @@ jobs:
           chmod +x kantui
           tar czf kantui-${{ matrix.target }}.tar.gz kantui_conf.toml kantui LICENSE README.md NOTICE.md
       - name: Upload files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with: 
           name: kantui-${{ matrix.target }}-archive
           if-no-files-found: error
@@ -105,7 +105,7 @@ jobs:
       - name: Convert deb to rpm
         run: |
           sudo find ./ -maxdepth 1 -name "*.deb" -exec alien --scripts --to-rpm {} \;
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: kantui-packages
           path: |
