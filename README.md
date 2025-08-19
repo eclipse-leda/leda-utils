@@ -331,6 +331,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md)
 ### Building rust utilities
 
 - Install Rust
+- Initialize git submodules with `git submodule init` and `git submodule update`
 - Switch to the respective source folder in `src/rust/<component>`
 - Run `cargo test`
 ### Running shell tests
