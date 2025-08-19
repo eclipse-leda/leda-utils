@@ -127,7 +127,7 @@ fn load_blueprints(dir: &Path, extension: &str) -> Vec<Blueprint> {
 fn publish_blueprint(message: &str, mqtt_conf: &MQTTconfig) -> Result<()> {
     let mut mqttoptions = MqttOptions::new("blueprints-selector", &mqtt_conf.host, mqtt_conf.port);
     mqttoptions.set_keep_alive(Duration::from_secs(5));
-    let (mut client, mut connection) = Client::new(mqttoptions, 10);
+    let (client, mut connection) = Client::new(mqttoptions, 10);
     client.publish(&mqtt_conf.topic, QoS::ExactlyOnce, false, message)?;
 
     // Spin the event loop and wait for pub completed packet
