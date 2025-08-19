@@ -16,7 +16,7 @@ use git2::Repository;
 use reqwest::{blocking, Url};
 use std::{fmt::Display, fs, path::Path, rc::Rc};
 use strum::{EnumIter, IntoEnumIterator};
-use tempdir::TempDir;
+use tempfile::tempdir;
 
 #[derive(Debug, EnumIter)]
 pub enum FetcherKind {
@@ -95,7 +95,7 @@ impl Fetcher {
     }
 
     fn git_repo(self) -> Result<()> {
-        let temp_dir = TempDir::new("blueprints_repo")?;
+        let temp_dir = tempdir()?;
         println!("Cloning into repository.");
         let _repo = Repository::clone(self.uri.as_str(), &temp_dir)?;
         copy_dir_recursive(&temp_dir, self.output_dir)?;
