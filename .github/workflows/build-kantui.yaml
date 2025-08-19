@@ -46,7 +46,7 @@ jobs:
         with:
           workspaces: |
             src/rust/kanto-auto-deployer/ -> target
-            src/rust/kantui/ -> target
+            src/rust/kanto-tui/ -> target
       - name: Build binary
         run: |
           cd src/rust/kanto-tui
